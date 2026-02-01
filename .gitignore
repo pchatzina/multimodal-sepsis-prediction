@@ -1,0 +1,25 @@
+# --- Python & Environment ---
+.env
+.venv/
+env/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# --- Heavy Data & Artifacts ---
+data
+models
+*.log
+
+# --- Specific Files ---
+notes.txt
+prompts.md
+README_dep.md
+test.py
+Thesis_description.pdf
+arch.md
+
+# --- Temporary/Nested Ignores ---
+src/data/
+src/models/

@@ -23,6 +23,7 @@ pytest tests/test_ehr_exports.py::TestCohortExport::test_no_non_cohort_subjects 
 | `test_data_acquisition_pipeline.py` | Cohort integrity, modality links, raw files on disk | Phases 1–4 complete |
 | `test_data_splitting.py` | Split completeness, no leakage, 70/15/15 ratios | Phase 5 complete |
 | `test_ehr_exports.py` | EHR CSV exports match DB (cohort filter, test-split exclusion) | EHR export scripts run |
+| `test_motor_pipeline.py` | MOTOR pretraining artifacts, inference bundle, Config consistency | `prepare_motor` + `pretrain_motor` run |
 
 ## Shared Fixtures
 

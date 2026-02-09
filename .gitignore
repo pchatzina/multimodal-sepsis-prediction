@@ -12,6 +12,9 @@ __pycache__/
 /models
 *.log
 
+# --- Copilot / IDE ---
+.github/
+
 # --- Specific Files ---
 notes.txt
 prompts.md

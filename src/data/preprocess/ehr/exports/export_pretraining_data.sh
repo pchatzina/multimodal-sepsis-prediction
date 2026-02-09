@@ -1,6 +1,6 @@
 #!/bin/bash
 # export_pretraining_data.sh
-# Purpose: Exports MIMIC-IV data for pretraining. Task-Adaptive Pretraining (TAPT) logic
+# Purpose: Exports MIMIC-IV data for pretraining.
 # Logic: Exports ALL data (background subjects + train/val cohort), EXCLUDING ONLY the 'test' split subjects.
 # Requirements: pigz installed, .pgpass configured
 
@@ -22,7 +22,7 @@ SCHEMAS["icu"]="mimiciv_icu"
 
 # --- Script Start ---
 
-echo "Starting MIMIC-IV TAPT Data Export..."
+echo "Starting MIMIC-IV Pretraining Data Export..."
 echo "Target DB: $DB"
 echo "Output Dir: $BASE_OUTPUT_DIR"
 echo "Excluding Subjects labeled 'test' in: $SPLIT_TABLE"

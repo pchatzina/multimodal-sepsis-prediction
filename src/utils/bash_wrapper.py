@@ -123,10 +123,7 @@ def run_pipeline(dataset: str) -> None:
 
 def main() -> None:
     """CLI entry point for MIMIC-IV bash script wrapper."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
+    Config.setup_logging()
 
     parser = argparse.ArgumentParser(
         description="Bash Wrapper for MIMIC-IV Data Processing",

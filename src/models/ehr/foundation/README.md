@@ -1,0 +1,88 @@
+# MOTOR Foundation Model — Pretraining Pipeline
+
+This directory contains the two-stage pipeline for pretraining a **MOTOR** (Medical Outcome Time-to-event Representations) transformer on MIMIC-IV EHR data.  MOTOR learns temporal representations of patient medical histories via a self-supervised time-to-event prediction objective.
+
+> **Reference:** Steinberg et al., *"MOTOR: A Time-To-Event Foundation Model For Structured Medical Records"*, 2023.  
+> **Library:** [`femr`](https://github.com/som-shahlab/femr) by Stanford SHAH Lab.
+
+## Prerequisites
+
+| Dependency | Purpose |
+|---|---|
+| **MEDS-formatted data** | The EHR export + MEDS ETL must have been run first (`src/data/preprocess/ehr/`).  The pretraining database lives at `Config.PRETRAINING_MEDS_READER_DIR`. |
+| **Athena vocabulary** | Download from [athena.ohdsi.org](https://athena.ohdsi.org/) and place at `Config.ATHENA_VOCABULARY_DIR`.  Run the CPT4 utility if needed: `java -jar cpt4.jar 5`. |
+| **UMLS API key** | Required by the Athena CPT4 tool — obtain a free account at [uts.nlm.nih.gov](https://uts.nlm.nih.gov/). |
+| **Python packages** | `femr`, `meds_reader`, `transformers`, `datasets`, `xformers` (see `environment.yml`). |
+| **GPU** | Training uses CUDA with bf16 precision. |
+
+## Pipeline Overview
+
+### Step 1: `prepare_motor.py` — Data Preparation
+
+Builds intermediate artifacts from the MEDS pretraining database:
+
+1. **Ontology** — Loads OHDSI concept graph from Athena vocabularies, prunes unused ontologies (SPL, HemOnc) to save memory.
+2. **Split** — Deterministic 90/10 train/val hash-based split (seed 97).  This split is for pretraining only — downstream evaluation uses the cohort splits from PostgreSQL.
+3. **Tokenizer** — Hierarchical vocabulary (16 384 codes) over the medical ontology.
+4. **MOTOR task** — Fits time-to-event distribution parameters for the pretraining head (8 192 tasks, 8 bins, 512-dim final layer).
+5. **Batches** — Tokenises the database into HuggingFace `Dataset` objects (train + val), saved to disk.
+
+Every step is **idempotent**: existing artifacts are loaded from disk, so the script can safely resume after a crash.
+
+```bash
+python -m src.models.ehr.foundation.prepare_motor
+```
+
+**Output** (`Config.MOTOR_PRETRAINING_FILES_DIR`):
+```
+pretraining_files/
+├── ontology.pkl        # Pruned OHDSI ontology
+├── split.csv           # Subject-level train/val assignment
+├── tokenizer/          # HierarchicalTokenizer checkpoint
+├── motor_task.pkl      # Pretraining task distribution params
+├── train_batches/      # HF Dataset (tokenised, PyTorch format)
+└── val_batches/        # HF Dataset (tokenised, PyTorch format)
+```
+
+### Step 2: `pretrain_motor.py` — Pretraining
+
+Trains a `FEMRModel` from scratch using HuggingFace's `Trainer` with the MOTOR objective.
+
+| Hyperparameter | Value | Rationale |
+|---|---|---|
+| Layers | 6 | "Small" model; upgrade to 12 for "base" |
+| Learning rate | 1e-4 | Standard for transformer pretraining |
+| Effective batch size | 32 | 1 × 32 gradient accumulation |
+| Precision | bf16 | Saves VRAM without fp16 instability |
+| Weight decay | 0.1 | Standard AdamW regularisation |
+| Adam β₂ | 0.95 | Slightly lower than default for stability |
+| Warmup | 500 steps | Gradual LR ramp-up |
+| Epochs | 100 | With early stopping via best-model reload |
+| Checkpoints kept | 2 | Saves disk; best model is reloaded at end |
+
+```bash
+python -m src.models.ehr.foundation.pretrain_motor
+```
+
+**Intermediate output** (`Config.MOTOR_MODEL_OUTPUT_DIR`) — ephemeral, cleaned up automatically:
+```
+pretraining_output/
+├── checkpoint-*/       # Trainer checkpoints (rolling, max 2)
+├── runs/               # TensorBoard logs
+└── final/              # Best model snapshot (copied, then removed)
+```
+
+**Final output** (`Config.MOTOR_MODEL_DIR`) — inference-ready bundle:
+```
+model/
+├── config.json            # Model architecture config
+├── model.safetensors      # Trained weights
+└── dictionary.msgpack     # Tokenizer vocabulary
+```
+
+This is the self-contained directory that `femr.models.transformer.compute_features()` expects as `model_path`. The embedding extraction scripts in `src/scripts/extract_embeddings/` point here.
+
+Monitor training:
+```bash
+tensorboard --logdir $MODELS_DATA_DIR/motor/pretraining_output/runs
+```

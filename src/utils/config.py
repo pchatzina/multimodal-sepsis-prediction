@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from pathlib import Path
@@ -20,9 +21,10 @@ class Config:
     # Validation: Ensure critical env vars exist
     if not all([_raw_env, _processed_env, _models_env]):
         print(
-            "ERROR: Missing data directories in .env file (RAW/PROCESSED/MODELS)",
+            "ERROR: Missing data directories in .env file",
             file=sys.stderr,
         )
+        sys.exit(1)
 
     # --- DATABASE CREDENTIALS ---
     DB_HOST = os.getenv("DB_HOST", "localhost")
@@ -52,10 +54,38 @@ class Config:
     RAW_ECG_DIR = Path(_raw_env) / "ecg"
     RAW_CXR_IMG_DIR = Path(_raw_env) / "cxr_img"
     RAW_CXR_TXT_DIR = Path(_raw_env) / "cxr_txt"
-    MODELS_DIR = Path(_models_env)
+    RAW_EHR_COHORT_DIR = Path(_raw_env) / "ehr" / "cohort" / "2.2"
+    RAW_EHR_PRETRAINING_DIR = Path(_raw_env) / "ehr" / "pretraining" / "2.2"
+
+    # MODELS_DIR = Path(_models_env)
+    ECG_PRETRAINED_MODEL_DIR = Path(_models_env) / "ecg/pretrained"
 
     # --- PROCESSED / FEATURES PATHS ---
-    MOTOR_FEATURES_DIR = Path(_processed_env) / "ehr/features"
+    MOTOR_FEATURES_DIR = Path(_processed_env) / "ehr/features_v1"
+    ECG_PROCESSED_ROOT_DIR = Path(_processed_env) / "ecg"
+    ECG_LABELS_DIR = Path(_processed_env) / "ecg" / "labels"
+    PROCESSED_EHR_COHORT_DIR = Path(_processed_env) / "ehr" / "cohort"
+    PROCESSED_EHR_PRETRAINING_DIR = Path(_processed_env) / "ehr" / "pretraining"
+
+    PRETRAINING_MEDS_READER_DIR = (
+        Path(_processed_env) / "ehr/pretraining/mimic-iv-meds-reader"
+    )
+    COHORT_MEDS_READER_DIR = Path(_processed_env) / "ehr/cohort/mimic-iv-meds-reader"
+    METADATA_MEDS_READER_DIR = (
+        Path(_processed_env) / "ehr/pretraining/mimic-iv-meds/metadata"
+    )
+
+    ATHENA_VOCABULARY_DIR = Path(_models_env) / "motor/athena_vocabulary"
+    ECG_EMBEDDINGS_DIR = Path(_processed_env) / "ecg" / "embeddings"
+    EHR_EMBEDDINGS_DIR = Path(_processed_env) / "ehr" / "embeddings"
+    ECG_MANIFEST_DIR = Path(_processed_env) / "ecg" / "manifests"
+
+    MOTOR_PRETRAINING_FILES_DIR = Path(_models_env) / "motor/pretraining_files"
+    MOTOR_MODEL_OUTPUT_DIR = Path(_models_env) / "motor/pretraining_output"
+    MOTOR_MODEL_DIR = Path(_models_env) / "motor/model"
+
+    ECG_XGBOOST_MODEL_DIR = Path(_models_env) / "ecg/xgboost"
+    ECG_LR_MODEL_DIR = Path(_models_env) / "ecg/logistic_regression"
 
     @classmethod
     def check_dirs(cls):
@@ -68,6 +98,11 @@ class Config:
             cls.RAW_CXR_IMG_DIR,
             cls.RAW_CXR_TXT_DIR,
             cls.MOTOR_FEATURES_DIR,
+            cls.MOTOR_PRETRAINING_FILES_DIR,
+            cls.MOTOR_MODEL_OUTPUT_DIR,
+            cls.MOTOR_MODEL_DIR,
+            cls.ECG_EMBEDDINGS_DIR,
+            cls.EHR_EMBEDDINGS_DIR,
         ]
 
         for path in paths_to_create:
@@ -79,3 +114,15 @@ class Config:
     def get_db_url(cls):
         """Returns the connection URL for SQLAlchemy/Pandas."""
         return f"postgresql://{cls.DB_USER}:{cls.DB_PASSWORD}@{cls.DB_HOST}:{cls.DB_PORT}/{cls.DB_NAME}"
+
+    @staticmethod
+    def setup_logging(level: int = logging.INFO) -> None:
+        """Configure root logger with the project-wide format.
+
+        Call once at the top of every ``main()`` / ``if __name__`` block
+        instead of duplicating ``logging.basicConfig(...)`` everywhere.
+        """
+        logging.basicConfig(
+            level=level,
+            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        )

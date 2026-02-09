@@ -10,15 +10,6 @@ __pycache__/
 # --- Heavy Data & Artifacts ---
 /data
 /models
+/misc
 *.log
-
-# --- Copilot / IDE ---
 .github/
-
-# --- Specific Files ---
-notes.txt
-prompts.md
-README_dep.md
-test.py
-Thesis_description.pdf
-arch.md

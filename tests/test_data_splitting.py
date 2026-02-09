@@ -1,18 +1,5 @@
 import pytest
 from sqlalchemy import text
-from src.utils.database import get_engine
-
-
-@pytest.fixture(scope="module")
-def db_engine():
-    """
-    Create a single DB connection for all tests in this module.
-    We use your utility to ensure consistent configuration.
-    """
-    engine = get_engine()
-    yield engine
-    # Clean up connection after tests finish
-    engine.dispose()
 
 
 def test_split_completeness(db_engine):
@@ -33,9 +20,9 @@ def test_split_completeness(db_engine):
         # Check for unassigned patients
         unassigned = total_cohort - total_splits
 
-    assert (
-        unassigned == 0
-    ), f"Found {unassigned} patients who were not assigned to a split!"
+    assert unassigned == 0, (
+        f"Found {unassigned} patients who were not assigned to a split!"
+    )
 
 
 def test_no_data_leakage(db_engine):
@@ -54,9 +41,9 @@ def test_no_data_leakage(db_engine):
             )
         ).fetchall()
 
-    assert (
-        len(duplicates) == 0
-    ), f"DATA LEAKAGE DETECTED: {len(duplicates)} patients are in multiple splits!"
+    assert len(duplicates) == 0, (
+        f"DATA LEAKAGE DETECTED: {len(duplicates)} patients are in multiple splits!"
+    )
 
 
 def test_stratification_ratios_global(db_engine):

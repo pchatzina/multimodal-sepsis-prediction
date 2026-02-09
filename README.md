@@ -52,6 +52,23 @@ The complete pipeline for downloading raw files, building the database schemas, 
 
 👉 **[Go to Data Setup Guide](scripts/README.md)**
 
+### EHR Preprocessing
+After the data acquisition pipeline is complete, export and transform the tabular EHR data for the MOTOR foundation model.
+
+A Python CLI wrapper (`src/utils/bash_wrapper.py`) runs the bash scripts with the correct environment variables from `Config`.
+
+```bash
+# 1. Export cohort-only EHR data (subjects in mimiciv_ext.cohort)
+python -m src.utils.bash_wrapper export-cohort
+
+# 2. Export pretraining EHR data (all subjects EXCEPT test split)
+python -m src.utils.bash_wrapper export-pretraining
+
+# 3. Convert exported CSVs to MEDS format
+python -m src.utils.bash_wrapper meds-pipeline cohort
+python -m src.utils.bash_wrapper meds-pipeline pretraining
+```
+
 ## ⚖️ License & Data Usage
 
 ### Code License
@@ -63,4 +80,4 @@ This project relies on the MIMIC-IV dataset, which is a restricted-access resour
 * Users must sign the Data Use Agreement (DUA) for MIMIC-IV, MIMIC-CXR, and MIMIC-IV-ECG.
 
 ## 🚧 Status
-**Work in Progress.** The data acquisition and cohort definition pipelines are complete. Data pre-processing and Model training modules are currently under development.
+**Work in Progress.** The data acquisition, cohort definition, and EHR preprocessing pipelines are complete. ECG preprocessing and model training modules are currently under development.

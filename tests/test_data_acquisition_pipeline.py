@@ -1,23 +1,9 @@
 import pytest
-import os
 from pathlib import Path
 from sqlalchemy import text
 from src.utils.config import Config
-from src.utils.database import get_engine
 
 # --- FIXTURES ---
-
-
-@pytest.fixture(scope="module")
-def db_engine():
-    """
-    Create a single DB connection for all tests in this module.
-    We use your utility to ensure consistent configuration.
-    """
-    engine = get_engine()
-    yield engine
-    # Clean up connection after tests finish
-    engine.dispose()
 
 
 @pytest.fixture(scope="module")
@@ -73,9 +59,9 @@ def test_class_balance(cohort_stats):
     positive_rate = positives / total
 
     # Check if rate is within a reasonable margin of 0.54 (e.g., 0.40 to 0.70)
-    assert (
-        0.40 <= positive_rate <= 0.70
-    ), f"Unexpected positive rate: {positive_rate:.2f}"
+    assert 0.40 <= positive_rate <= 0.70, (
+        f"Unexpected positive rate: {positive_rate:.2f}"
+    )
 
 
 def test_one_admission_per_patient(db_engine):
@@ -172,9 +158,9 @@ def test_cxr_files_exist_on_disk(db_engine):
         if not full_path.exists():
             missing_files.append(str(full_path))
 
-    assert (
-        len(missing_files) == 0
-    ), f"Sampled files missing from disk: {missing_files[:3]}..."
+    assert len(missing_files) == 0, (
+        f"Sampled files missing from disk: {missing_files[:3]}..."
+    )
 
 
 def test_ecg_files_exist_on_disk(db_engine):

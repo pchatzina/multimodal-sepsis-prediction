@@ -1,24 +1,27 @@
+"""Create DB schemas and load CXR/ECG metadata into PostgreSQL."""
+
 import gzip
+import logging
 from pathlib import Path
+
 from sqlalchemy import text
+
 from src.utils.config import Config
 from src.utils.database import get_engine
 
+logger = logging.getLogger(__name__)
+
 
 def run_ddl_script(engine, file_path: Path):
-    """
-    Executes a SQL file containing DDL (CREATE TABLE, DROP SCHEMA, etc.).
-    """
+    """Execute a SQL file containing DDL statements (CREATE TABLE, DROP SCHEMA, etc.)."""
     if not file_path.exists():
-        print(f"ERROR: Script not found: {file_path}")
+        logger.error("Script not found: %s", file_path)
         return
 
-    print(f"--- Running DDL: {file_path.name} ---")
+    logger.info("Running DDL: %s", file_path.name)
     with open(file_path, "r", encoding="utf-8") as f:
         sql_content = f.read()
 
-    # Split by semicolon to handle multiple statements if needed,
-    # but usually execute() handles blocks fine if they are valid SQL.
     with engine.connect() as conn:
         conn.execute(text(sql_content))
         conn.commit()
@@ -27,21 +30,20 @@ def run_ddl_script(engine, file_path: Path):
 def load_table_from_csv(
     engine, table_name: str, file_path: Path, compressed: bool = False
 ):
-    """
-    High-performance data loading using Postgres COPY protocol.
-    Streams data from Python directly to the DB, bypassing file permission issues on the server.
+    """Load CSV data into a table using the Postgres COPY protocol.
+
+    Streams data from Python directly to the DB, bypassing file
+    permission issues on the server.
     """
     if not file_path.exists():
-        print(f"SKIPPING: {table_name} - File not found: {file_path}")
+        logger.warning("Skipping %s — file not found: %s", table_name, file_path)
         return
 
-    print(f"--- Loading Table: {table_name} from {file_path.name} ---")
+    logger.info("Loading table %s from %s", table_name, file_path.name)
 
     raw_conn = engine.raw_connection()
     try:
         with raw_conn.cursor() as cursor:
-            # Prepare the COPY statement
-            # FROM STDIN tells Postgres to read from the data stream we send
             sql = f"COPY {table_name} FROM STDIN WITH CSV HEADER NULL ''"
 
             if compressed:
@@ -52,10 +54,10 @@ def load_table_from_csv(
                     cursor.copy_expert(sql, f)
 
         raw_conn.commit()
-        print(f"SUCCESS: Loaded {table_name}")
+        logger.info("Loaded %s", table_name)
     except Exception as e:
         raw_conn.rollback()
-        print(f"ERROR loading {table_name}: {e}")
+        logger.error("Error loading %s: %s", table_name, e)
     finally:
         raw_conn.close()
 
@@ -67,15 +69,14 @@ def main():
     # ==========================================
     # PHASE 1: CREATE SCHEMAS (DDL)
     # ==========================================
-    print("\n>>> Phase 1: Creating Schemas...")
+    logger.info("Phase 1: Creating Schemas...")
     run_ddl_script(engine, script_root / "create_cxr.sql")
     run_ddl_script(engine, script_root / "create_ecg.sql")
 
     # ==========================================
     # PHASE 2: LOAD CXR DATA
     # ==========================================
-    print("\n>>> Phase 2: Loading CXR Data...")
-    # Map Table Name -> File Name
+    logger.info("Phase 2: Loading CXR Data...")
     cxr_tasks = [
         ("mimiciv_cxr.record_list", Config.RAW_CXR_IMG_DIR / "cxr-record-list.csv.gz"),
         ("mimiciv_cxr.study_list", Config.RAW_CXR_IMG_DIR / "cxr-study-list.csv.gz"),
@@ -91,8 +92,7 @@ def main():
     # ==========================================
     # PHASE 3: LOAD ECG DATA
     # ==========================================
-    print("\n>>> Phase 3: Loading ECG Data...")
-    # Map Table Name -> File Name
+    logger.info("Phase 3: Loading ECG Data...")
     ecg_tasks = [
         ("mimiciv_ecg.record_list", Config.RAW_ECG_DIR / "record_list.csv"),
         (
@@ -104,8 +104,12 @@ def main():
     for table, fpath in ecg_tasks:
         load_table_from_csv(engine, table, fpath, compressed=False)
 
-    print("\n>>> Database setup complete.")
+    logger.info("Database setup complete.")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
     main()

@@ -8,8 +8,8 @@ __pycache__/
 .DS_Store
 
 # --- Heavy Data & Artifacts ---
-data
-models
+/data
+/models
 *.log
 
 # --- Specific Files ---
@@ -19,7 +19,3 @@ README_dep.md
 test.py
 Thesis_description.pdf
 arch.md
-
-# --- Temporary/Nested Ignores ---
-src/data/
-src/models/

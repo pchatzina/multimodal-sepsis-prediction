@@ -46,7 +46,11 @@ LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 0.1
 ADAM_BETA2 = 0.95
 WARMUP_STEPS = 500
-NUM_EPOCHS = 100
+NUM_EPOCHS = 30
+
+# Stop training when eval loss does not improve for N consecutive evaluations.
+# With EVAL_EVERY_STEPS=500 this means 2 500 optimiser steps of patience.
+EARLY_STOPPING_PATIENCE = 5
 
 # Effective batch size = per_device × gradient_accumulation = 1 × 32 = 32.
 PER_DEVICE_BATCH_SIZE = 1
@@ -159,6 +163,11 @@ def main():
         train_dataset=train_batches,
         eval_dataset=val_batches,
         args=trainer_args,
+        callbacks=[
+            transformers.EarlyStoppingCallback(
+                early_stopping_patience=EARLY_STOPPING_PATIENCE,
+            ),
+        ],
     )
 
     # ------------------------------------------------------------------

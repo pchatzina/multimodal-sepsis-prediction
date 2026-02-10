@@ -57,7 +57,8 @@ Trains a `FEMRModel` from scratch using HuggingFace's `Trainer` with the MOTOR o
 | Weight decay | 0.1 | Standard AdamW regularisation |
 | Adam β₂ | 0.95 | Slightly lower than default for stability |
 | Warmup | 500 steps | Gradual LR ramp-up |
-| Epochs | 100 | With early stopping via best-model reload |
+| Epochs | 30 | Hard cap; early stopping typically triggers first |
+| Early stopping patience | 5 | Stop after 5 evals (2 500 steps) with no val-loss improvement |
 | Checkpoints kept | 2 | Saves disk; best model is reloaded at end |
 
 ```bash

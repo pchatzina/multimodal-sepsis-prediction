@@ -80,6 +80,7 @@ class TestConstantsSanity:
             NUM_EPOCHS,
             PER_DEVICE_BATCH_SIZE,
             GRADIENT_ACCUMULATION_STEPS,
+            EARLY_STOPPING_PATIENCE,
         )
 
         assert N_LAYERS > 0
@@ -89,6 +90,7 @@ class TestConstantsSanity:
         assert NUM_EPOCHS > 0
         assert PER_DEVICE_BATCH_SIZE >= 1
         assert GRADIENT_ACCUMULATION_STEPS >= 1
+        assert EARLY_STOPPING_PATIENCE >= 1
 
 # ==========================================
 # PREPARATION ARTIFACT TESTS

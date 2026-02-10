@@ -90,15 +90,6 @@ class TestConstantsSanity:
         assert PER_DEVICE_BATCH_SIZE >= 1
         assert GRADIENT_ACCUMULATION_STEPS >= 1
 
-    def test_generate_features_split_map(self):
-        from src.scripts.extract_embeddings.generate_motor_features import (
-            SPLIT_NAME_MAP,
-        )
-
-        assert set(SPLIT_NAME_MAP.keys()) == {"train", "validate", "test"}
-        assert set(SPLIT_NAME_MAP.values()) == {"train", "valid", "test"}
-
-
 # ==========================================
 # PREPARATION ARTIFACT TESTS
 # ==========================================

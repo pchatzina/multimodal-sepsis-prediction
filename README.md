@@ -82,13 +82,6 @@ python -m src.models.ehr.foundation.prepare_motor
 python -m src.models.ehr.foundation.pretrain_motor
 ```
 
-After pretraining, extract per-subject embeddings for the downstream classifiers:
-
-```bash
-# 3. Extract EHR embeddings (→ processed/ehr/embeddings/{train,valid,test}_embeddings.pt)
-python -m src.scripts.extract_embeddings.generate_motor_features
-```
-
 ## ⚖️ License & Data Usage
 
 ### Code License
@@ -100,4 +93,4 @@ This project relies on the MIMIC-IV dataset, which is a restricted-access resour
 * Users must sign the Data Use Agreement (DUA) for MIMIC-IV, MIMIC-CXR, and MIMIC-IV-ECG.
 
 ## 🚧 Status
-**Work in Progress.** The data acquisition, cohort definition, EHR preprocessing, and EHR model pretraining (MOTOR) pipelines are complete. ECG preprocessing, ECG embedding extraction, and downstream classifier training are functional. CXR pipelines and the late-fusion model are under development.
+**Work in Progress.** The data acquisition, cohort definition, EHR preprocessing, and EHR model pretraining (MOTOR) pipelines are complete. Embedding extraction, downstream classifiers, ECG/CXR pipelines, and the late-fusion model are under development.

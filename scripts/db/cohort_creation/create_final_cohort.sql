@@ -64,7 +64,12 @@ DROP TABLE IF EXISTS mimiciv_ext.cohort_cxr;
 
 CREATE TABLE mimiciv_ext.cohort_cxr AS
 SELECT DISTINCT ON (c.subject_id)
-    c.*
+    c.id,
+    c.subject_id,
+    c.hadm_id,
+    c.study_id,
+    c.study_timestamp,
+    c.study_path
 FROM mimiciv_ext.generic_cxr_cohort c
 JOIN kept_admissions_temp k 
     ON c.subject_id = k.subject_id AND c.hadm_id = k.hadm_id
@@ -94,7 +99,7 @@ ORDER BY
     e.subject_id, 
     e.study_timestamp DESC; -- Keep the latest study before anchor time
 
--- Production Safety: PK, FK, & Index
+-- PK, FK, & Index
 ALTER TABLE mimiciv_ext.cohort_ecg ADD PRIMARY KEY (id);
 CREATE INDEX idx_ecg_subject ON mimiciv_ext.cohort_ecg(subject_id);
 ALTER TABLE mimiciv_ext.cohort_ecg 

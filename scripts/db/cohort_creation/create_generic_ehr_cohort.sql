@@ -7,8 +7,10 @@
 --            Subject-level deduplication happens in a later step based on modality availability.
 -- ------------------------------------------------------------------
 
-DROP TABLE IF EXISTS mimiciv_ext.generic_ehr_cohort;
+DROP SCHEMA IF EXISTS mimiciv_ext CASCADE;
+CREATE SCHEMA mimiciv_ext;
 
+DROP TABLE IF EXISTS mimiciv_ext.generic_ehr_cohort;
 CREATE TABLE mimiciv_ext.generic_ehr_cohort (
     -- Patient Identifiers
     subject_id INT NOT NULL,

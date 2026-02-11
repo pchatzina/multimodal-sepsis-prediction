@@ -44,7 +44,7 @@ SELECT DISTINCT ON (s.subject_id, s.study_id)
         floor(m.studytime)::integer % 100
     ) AS study_timestamp,
     -- Use the official path from record_list instead of manual construction
-    r.path AS study_path,
+    regexp_replace(r.path, '\.dcm$', '.jpg') AS study_path,
     r.dicom_id,
     m.rows,
     m.columns,

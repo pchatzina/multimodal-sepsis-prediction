@@ -1,4 +1,4 @@
-"""Download CXR image files from PhysioNet for cohort patients."""
+"""Download CXR image files and reports from PhysioNet for cohort patients."""
 
 import logging
 import subprocess
@@ -12,7 +12,26 @@ from src.utils.download import download_with_wget
 logger = logging.getLogger(__name__)
 
 
-def main():
+def download_reports():
+    """Download the CXR reports zip from PhysioNet into RAW_CXR_TXT_DIR."""
+    logger.info("Starting CXR Reports Download...")
+
+    url = f"{Config.URL_CXR_BASE}{Config.CXR_REPORTS_FILE}"
+    local_file = Config.RAW_CXR_TXT_DIR / Config.CXR_REPORTS_FILE
+
+    try:
+        download_with_wget(
+            url, local_file, Config.PHYSIONET_USER, Config.PHYSIONET_PASS
+        )
+        logger.info("Downloaded CXR reports to %s", local_file)
+    except subprocess.CalledProcessError:
+        logger.error("Failed to download CXR reports from %s", url)
+
+    logger.info("CXR Reports Download Complete.")
+
+
+def download_images():
+    """Download individual CXR JPG images for each cohort patient."""
     logger.info("Starting CXR Image Download for Cohort...")
     engine = get_engine()
 
@@ -38,7 +57,12 @@ def main():
         if i % 50 == 0:
             logger.info("[%d/%d] Downloaded CXR for Subject %s", i, total, sub_id)
 
-    logger.info("CXR Download Complete.")
+    logger.info("CXR Image Download Complete.")
+
+
+def main():
+    download_reports()
+    download_images()
 
 
 if __name__ == "__main__":

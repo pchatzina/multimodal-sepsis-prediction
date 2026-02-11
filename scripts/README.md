@@ -43,7 +43,7 @@ psql -d mimiciv -f scripts/db/cohort_creation/create_final_cohort.sql
 Download the specific raw data files (Images and Signals) for the finalized cohort only.
 
 ```bash
-# Download CXR Images (JPG)
+# Download CXR Images (JPG) and Reports
 python -m scripts.downloads.download_cxr_files
 
 # Download ECG Signals (.dat/.hea)

@@ -111,7 +111,7 @@ def run_pipeline(dataset: str) -> None:
     raw_base, processed_base = dataset_config[dataset]
 
     env = {
-        "RAW_BASE": str(raw_base),
+        "RAW_BASE": str(raw_base.parent),
         "PROCESSED_BASE": str(processed_base),
     }
     run_script(

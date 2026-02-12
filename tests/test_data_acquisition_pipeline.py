@@ -3,6 +3,10 @@ from pathlib import Path
 from sqlalchemy import text
 from src.utils.config import Config
 
+import zipfile
+from PIL import Image
+import wfdb
+
 # --- FIXTURES ---
 
 
@@ -133,65 +137,127 @@ def test_ecg_cohort_integrity(db_engine):
 # --- FILE SYSTEM TESTS ---
 
 
-def test_cxr_files_exist_on_disk(db_engine):
-    """
-    Sample 10 random CXR paths from DB and verify they exist on disk.
-    This confirms download_cxr_files.py worked.
-    """
+@pytest.fixture(scope="module")
+def cxr_paths(db_engine):
+    """Fetch all CXR study paths once."""
     with db_engine.connect() as conn:
         rows = conn.execute(
-            text(
-                """
-            SELECT study_path FROM mimiciv_ext.cohort_cxr 
-            ORDER BY RANDOM() LIMIT 10
-        """
-            )
+            text("SELECT study_path FROM mimiciv_ext.cohort_cxr")
         ).fetchall()
+    return [row[0] for row in rows]
 
-    assert len(rows) > 0, "No CXR records found in DB to test."
 
-    missing_files = []
-    for (db_path,) in rows:
-        # DB path: files/p10/...
-        # Config.RAW_CXR_IMG_DIR points to the root of downloads
-        full_path = Config.RAW_CXR_IMG_DIR / db_path
-        if not full_path.exists():
-            missing_files.append(str(full_path))
+@pytest.fixture(scope="module")
+def ecg_paths(db_engine):
+    """Fetch all ECG study paths once."""
+    with db_engine.connect() as conn:
+        rows = conn.execute(
+            text("SELECT study_path FROM mimiciv_ext.cohort_ecg")
+        ).fetchall()
+    return [row[0] for row in rows]
 
-    assert len(missing_files) == 0, (
-        f"Sampled files missing from disk: {missing_files[:3]}..."
+
+def test_cxr_dir_exists():
+    """Verify the CXR image directory exists."""
+    assert Config.RAW_CXR_IMG_DIR.is_dir(), (
+        f"CXR image directory not found: {Config.RAW_CXR_IMG_DIR}"
     )
 
 
-def test_ecg_files_exist_on_disk(db_engine):
+def test_ecg_dir_exists():
+    """Verify the ECG directory exists."""
+    assert Config.RAW_ECG_DIR.is_dir(), f"ECG directory not found: {Config.RAW_ECG_DIR}"
+
+
+def test_cxr_files_on_disk(cxr_paths):
+    """Verify all CXR files exist and are non-empty."""
+    assert len(cxr_paths) > 0, "No CXR records found in DB."
+
+    missing, empty = [], []
+    for db_path in cxr_paths:
+        full_path = Config.RAW_CXR_IMG_DIR / db_path
+        if not full_path.exists():
+            missing.append(str(full_path))
+        elif full_path.stat().st_size == 0:
+            empty.append(str(full_path))
+
+    assert len(missing) == 0, f"{len(missing)} missing: {missing[:3]}..."
+    assert len(empty) == 0, f"{len(empty)} are 0-byte: {empty[:3]}..."
+
+
+def test_ecg_files_on_disk(ecg_paths):
+    """Verify all ECG .hea/.dat files exist and are non-empty."""
+    assert len(ecg_paths) > 0, "No ECG records found in DB."
+
+    missing, empty = [], []
+    for db_path in ecg_paths:
+        for ext in (".hea", ".dat"):
+            fpath = Config.RAW_ECG_DIR / f"{db_path}{ext}"
+            if not fpath.exists():
+                missing.append(str(fpath))
+            elif fpath.stat().st_size == 0:
+                empty.append(str(fpath))
+
+    assert len(missing) == 0, f"{len(missing)} missing: {missing[:3]}..."
+    assert len(empty) == 0, f"{len(empty)} are 0-byte: {empty[:3]}..."
+
+
+def test_cxr_files_not_corrupted(cxr_paths):
+    """Verify all CXR images can be opened/decoded."""
+    corrupted = []
+    for db_path in cxr_paths:
+        full_path = Config.RAW_CXR_IMG_DIR / db_path
+        if not full_path.exists():
+            continue
+        if full_path.stat().st_size == 0:
+            corrupted.append((str(full_path), "0-byte file"))
+            continue
+        try:
+            with Image.open(full_path) as img:
+                img.verify()
+        except Exception as e:
+            corrupted.append((str(full_path), str(e)))
+
+    assert len(corrupted) == 0, (
+        f"Found {len(corrupted)} corrupted CXR files: {corrupted[:3]}"
+    )
+
+
+def test_ecg_files_not_corrupted(ecg_paths):
+    """Verify all ECG records can be parsed by wfdb."""
+    corrupted = []
+    for db_path in ecg_paths:
+        record_path = Config.RAW_ECG_DIR / db_path
+        hea_path = record_path.with_suffix(".hea")
+        dat_path = record_path.with_suffix(".dat")
+        if not hea_path.exists() or not dat_path.exists():
+            continue
+        if hea_path.stat().st_size == 0:
+            corrupted.append((str(hea_path), "0-byte file"))
+            continue
+        if dat_path.stat().st_size == 0:
+            corrupted.append((str(dat_path), "0-byte file"))
+            continue
+        try:
+            wfdb.rdrecord(str(record_path))
+        except Exception as e:
+            corrupted.append((str(record_path), str(e)))
+
+    assert len(corrupted) == 0, (
+        f"Found {len(corrupted)} corrupted ECG records: {corrupted[:3]}"
+    )
+
+
+def test_cxr_reports_zip_not_corrupted():
     """
-    Sample 10 random ECG paths from DB and verify .dat/.hea exist.
+    Verify the CXR reports ZIP is valid and all entries pass CRC checks.
     """
-    with db_engine.connect() as conn:
-        rows = conn.execute(
-            text(
-                """
-            SELECT study_path FROM mimiciv_ext.cohort_ecg 
-            ORDER BY RANDOM() LIMIT 10
-        """
-            )
-        ).fetchall()
+    reports_path = Config.RAW_CXR_TXT_DIR / Config.CXR_REPORTS_FILE
+    if not reports_path.exists():
+        pytest.skip("CXR reports file not found — skipping corruption check.")
 
-    assert len(rows) > 0, "No ECG records found in DB to test."
+    assert zipfile.is_zipfile(reports_path), f"{reports_path} is not a valid ZIP file"
 
-    missing_files = []
-    for (db_path,) in rows:
-        # ECG path in DB often lacks extension or is relative
-        # Assuming db_path is like "files/p10/..."
-
-        # Check .hea
-        hea_path = Config.RAW_ECG_DIR / f"{db_path}.hea"
-        if not hea_path.exists():
-            missing_files.append(str(hea_path))
-
-        # Check .dat
-        dat_path = Config.RAW_ECG_DIR / f"{db_path}.dat"
-        if not dat_path.exists():
-            missing_files.append(str(dat_path))
-
-    assert len(missing_files) == 0, f"Sampled ECG files missing: {missing_files[:3]}..."
+    with zipfile.ZipFile(reports_path, "r") as zf:
+        bad_file = zf.testzip()  # returns first bad filename or None
+        assert bad_file is None, f"Corrupted entry in CXR reports ZIP: {bad_file}"

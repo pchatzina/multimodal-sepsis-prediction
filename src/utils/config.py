@@ -8,91 +8,98 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+logger = logging.getLogger(__name__)
+
+
 class Config:
-    # --- BASE PATHS ---
-    # Points to the root of the project
+    # ── BASE PATHS ──────────────────────────────────────────────────────
     PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
-    # Environment Variables
     _raw_env = os.getenv("RAW_DATA_DIR")
     _processed_env = os.getenv("PROCESSED_DATA_DIR")
     _models_env = os.getenv("MODELS_DATA_DIR")
 
-    # Validation: Ensure critical env vars exist
     if not all([_raw_env, _processed_env, _models_env]):
-        print(
-            "ERROR: Missing data directories in .env file",
-            file=sys.stderr,
-        )
+        print("ERROR: Missing data directories in .env file", file=sys.stderr)
         sys.exit(1)
 
-    # --- DATABASE CREDENTIALS ---
+    # ── DATABASE CREDENTIALS ────────────────────────────────────────────
     DB_HOST = os.getenv("DB_HOST", "localhost")
     DB_PORT = os.getenv("DB_PORT", "5432")
     DB_NAME = os.getenv("DB_NAME", "mimiciv")
     DB_USER = os.getenv("DB_USER", "postgres")
     DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")
 
-    # --- PHYSIONET CREDENTIALS ---
+    # ── PHYSIONET CREDENTIALS ───────────────────────────────────────────
     PHYSIONET_USER = os.getenv("PHYSIONET_USER")
     PHYSIONET_PASS = os.getenv("PHYSIONET_PASS")
 
-    # --- REMOTE URLS ---
+    # ── REMOTE URLS & METADATA ──────────────────────────────────────────
     URL_CXR_BASE = "https://physionet.org/files/mimic-cxr/2.1.0/"
     URL_CXR_JPG_BASE = "https://physionet.org/files/mimic-cxr-jpg/2.1.0/"
     URL_ECG_BASE = "https://physionet.org/files/mimic-iv-ecg/1.0/"
 
-    # --- METADATA FILENAMES ---
     CXR_METADATA_FILES = [
         ("cxr-record-list.csv.gz", URL_CXR_BASE),
         ("cxr-study-list.csv.gz", URL_CXR_BASE),
         ("mimic-cxr-2.0.0-metadata.csv.gz", URL_CXR_JPG_BASE),
     ]
+    CXR_REPORTS_FILE = "mimic-cxr-reports.zip"
     ECG_METADATA_FILES = ["record_list.csv", "machine_measurements.csv"]
 
-    # --- LOCAL DATA PATHS ---
+    # ── RAW DATA PATHS ──────────────────────────────────────────────────
+    # ECG
     RAW_ECG_DIR = Path(_raw_env) / "ecg"
+    # CXR
     RAW_CXR_IMG_DIR = Path(_raw_env) / "cxr_img"
     RAW_CXR_TXT_DIR = Path(_raw_env) / "cxr_txt"
+    # EHR
     RAW_EHR_COHORT_DIR = Path(_raw_env) / "ehr" / "cohort" / "2.2"
     RAW_EHR_PRETRAINING_DIR = Path(_raw_env) / "ehr" / "pretraining" / "2.2"
 
-    # MODELS_DIR = Path(_models_env)
-    ECG_PRETRAINED_MODEL_DIR = Path(_models_env) / "ecg/pretrained"
-
-    # --- PROCESSED / FEATURES PATHS ---
-    MOTOR_FEATURES_DIR = Path(_processed_env) / "ehr/features_v1"
+    # ── PROCESSED DATA PATHS ────────────────────────────────────────────
+    # ECG
     ECG_PROCESSED_ROOT_DIR = Path(_processed_env) / "ecg"
     ECG_LABELS_DIR = Path(_processed_env) / "ecg" / "labels"
+    ECG_MANIFEST_DIR = Path(_processed_env) / "ecg" / "manifests"
+    ECG_EMBEDDINGS_DIR = Path(_processed_env) / "ecg" / "embeddings"
+    # EHR
     PROCESSED_EHR_COHORT_DIR = Path(_processed_env) / "ehr" / "cohort"
     PROCESSED_EHR_PRETRAINING_DIR = Path(_processed_env) / "ehr" / "pretraining"
-
+    COHORT_MEDS_READER_DIR = Path(_processed_env) / "ehr/cohort/mimic-iv-meds-reader"
     PRETRAINING_MEDS_READER_DIR = (
         Path(_processed_env) / "ehr/pretraining/mimic-iv-meds-reader"
     )
-    COHORT_MEDS_READER_DIR = Path(_processed_env) / "ehr/cohort/mimic-iv-meds-reader"
-    METADATA_MEDS_READER_DIR = (
-        Path(_processed_env) / "ehr/pretraining/mimic-iv-meds/metadata"
+    METADATA_MEDS_READER_FILE = (
+        Path(_processed_env) / "ehr/pretraining/mimic-iv-meds/metadata/codes.parquet"
     )
-
-    ATHENA_VOCABULARY_DIR = Path(_models_env) / "motor/athena_vocabulary"
-    ECG_EMBEDDINGS_DIR = Path(_processed_env) / "ecg" / "embeddings"
+    MOTOR_FEATURES_DIR = Path(_processed_env) / "ehr/features"
+    EHR_LABELS_DIR = Path(_processed_env) / "ehr/labels"
     EHR_EMBEDDINGS_DIR = Path(_processed_env) / "ehr" / "embeddings"
-    ECG_MANIFEST_DIR = Path(_processed_env) / "ecg" / "manifests"
 
+    # ── MODEL ARTIFACT PATHS ────────────────────────────────────────────
+    # ECG
+    ECG_PRETRAINED_MODEL_DIR = Path(_models_env) / "ecg/pretrained"
+    ECG_XGBOOST_MODEL_DIR = Path(_models_env) / "ecg/xgboost"
+    ECG_LR_MODEL_DIR = Path(_models_env) / "ecg/lr"
+    # EHR — MOTOR foundation model
+    ATHENA_VOCABULARY_DIR = Path(_models_env) / "motor/athena_vocabulary"
     MOTOR_PRETRAINING_FILES_DIR = Path(_models_env) / "motor/pretraining_files"
     MOTOR_MODEL_OUTPUT_DIR = Path(_models_env) / "motor/pretraining_output"
     MOTOR_MODEL_DIR = Path(_models_env) / "motor/model"
+    # EHR — downstream classifiers
+    EHR_LR_MODEL_DIR = Path(_models_env) / "ehr/lr"
+    EHR_XGBOOST_MODEL_DIR = Path(_models_env) / "ehr/xgboost"
+    EHR_MLP_MODEL_DIR = Path(_models_env) / "ehr/mlp"
 
-    ECG_XGBOOST_MODEL_DIR = Path(_models_env) / "ecg/xgboost"
-    ECG_LR_MODEL_DIR = Path(_models_env) / "ecg/logistic_regression"
+    # ── RESULTS & TENSORBOARD ───────────────────────────────────────────
+    RESULTS_DIR = Path(_processed_env) / "results"
+    TENSORBOARD_LOG_DIR = Path(_processed_env) / "results" / "tensorboard"
 
+    # ── METHODS ─────────────────────────────────────────────────────────
     @classmethod
     def check_dirs(cls):
-        """
-        Creates essential directories if they don't exist.
-        Should be called at the start of data acquisition scripts.
-        """
+        """Creates essential directories if they don't exist."""
         paths_to_create = [
             cls.RAW_ECG_DIR,
             cls.RAW_CXR_IMG_DIR,
@@ -103,12 +110,13 @@ class Config:
             cls.MOTOR_MODEL_DIR,
             cls.ECG_EMBEDDINGS_DIR,
             cls.EHR_EMBEDDINGS_DIR,
+            cls.ATHENA_VOCABULARY_DIR,
         ]
 
         for path in paths_to_create:
             if not path.exists():
                 path.mkdir(parents=True, exist_ok=True)
-                print(f"Created directory: {path}")
+                logger.info("Created directory: %s", path)
 
     @classmethod
     def get_db_url(cls):
@@ -117,11 +125,7 @@ class Config:
 
     @staticmethod
     def setup_logging(level: int = logging.INFO) -> None:
-        """Configure root logger with the project-wide format.
-
-        Call once at the top of every ``main()`` / ``if __name__`` block
-        instead of duplicating ``logging.basicConfig(...)`` everywhere.
-        """
+        """Configure root logger with the project-wide format."""
         logging.basicConfig(
             level=level,
             format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",

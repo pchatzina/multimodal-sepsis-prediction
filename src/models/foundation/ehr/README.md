@@ -10,7 +10,7 @@ This directory contains the two-stage pipeline for pretraining a **MOTOR** (Medi
 | Dependency | Purpose |
 |---|---|
 | **MEDS-formatted data** | The EHR export + MEDS ETL must have been run first (`src/data/preprocess/ehr/`).  The pretraining database lives at `Config.PRETRAINING_MEDS_READER_DIR`. |
-| **Athena vocabulary** | Download from [athena.ohdsi.org](https://athena.ohdsi.org/) and place at `Config.ATHENA_VOCABULARY_DIR`.  Run the CPT4 utility if needed: `java -jar cpt4.jar 5`. |
+| **Athena vocabulary** | Download from [athena.ohdsi.org](https://athena.ohdsi.org/) and unpack at `Config.ATHENA_VOCABULARY_DIR`.  Then run `java -Dumls-apikey=xxx -jar cpt4.jar 5`. Replace "xxx" with UMLS API KEY. |
 | **UMLS API key** | Required by the Athena CPT4 tool — obtain a free account at [uts.nlm.nih.gov](https://uts.nlm.nih.gov/). |
 | **Python packages** | `femr`, `meds_reader`, `transformers`, `datasets`, `xformers` (see `environment.yml`). |
 | **GPU** | Training uses CUDA with bf16 precision. |
@@ -30,7 +30,7 @@ Builds intermediate artifacts from the MEDS pretraining database:
 Every step is **idempotent**: existing artifacts are loaded from disk, so the script can safely resume after a crash.
 
 ```bash
-python -m src.models.ehr.foundation.prepare_motor
+python -m src.models.foundation.ehr.prepare_motor
 ```
 
 **Output** (`Config.MOTOR_PRETRAINING_FILES_DIR`):
@@ -50,7 +50,7 @@ Trains a `FEMRModel` from scratch using HuggingFace's `Trainer` with the MOTOR o
 
 | Hyperparameter | Value | Rationale |
 |---|---|---|
-| Layers | 6 | "Small" model; upgrade to 12 for "base" |
+| Layers | 12 | "Base" model; use 6 for "small" |
 | Learning rate | 1e-4 | Standard for transformer pretraining |
 | Effective batch size | 32 | 1 × 32 gradient accumulation |
 | Precision | bf16 | Saves VRAM without fp16 instability |
@@ -62,7 +62,7 @@ Trains a `FEMRModel` from scratch using HuggingFace's `Trainer` with the MOTOR o
 | Checkpoints kept | 2 | Saves disk; best model is reloaded at end |
 
 ```bash
-python -m src.models.ehr.foundation.pretrain_motor
+python -m src.models.foundation.ehr.pretrain_motor
 ```
 
 **Intermediate output** (`Config.MOTOR_MODEL_OUTPUT_DIR`) — ephemeral, cleaned up automatically:

@@ -8,10 +8,10 @@ HuggingFace's Trainer with the MOTOR pretraining objective.
 The trained model is saved to ``Config.MOTOR_MODEL_OUTPUT_DIR`` with
 checkpoints managed by the Trainer.  After training, the script consolidates
 the inference-ready bundle (model weights, config, tokenizer dictionary) into
-``Config.MOTOR_MODEL_DIR`` and cleans up ephemeral training artifacts.
+``Config.MOTOR_MODEL_DIR``.
 
 Usage:
-    python -m src.models.ehr.foundation.pretrain_motor
+    python -m src.models.foundation.ehr.pretrain_motor
 """
 
 import logging
@@ -35,8 +35,8 @@ logger = logging.getLogger(__name__)
 # ARCHITECTURE
 # ==========================================
 
-# Transformer depth.  6 layers → "small"; 12 → "base".
-N_LAYERS = 6
+# Transformer depth.
+N_LAYERS = 12
 
 # ==========================================
 # TRAINING HYPERPARAMETERS
@@ -49,7 +49,7 @@ WARMUP_STEPS = 500
 NUM_EPOCHS = 30
 
 # Stop training when eval loss does not improve for N consecutive evaluations.
-# With EVAL_EVERY_STEPS=500 this means 2 500 optimiser steps of patience.
+# With EVAL_EVERY_STEPS=500 this means 2500 optimiser steps of patience.
 EARLY_STOPPING_PATIENCE = 5
 
 # Effective batch size = per_device × gradient_accumulation = 1 × 32 = 32.
@@ -85,6 +85,18 @@ def main():
     # 1. Load pretraining artifacts produced by prepare_motor.py
     # ------------------------------------------------------------------
     logger.info("Loading ontology and tokenizer from %s", prep_dir)
+
+    required_artifacts = [
+        prep_dir / "ontology.pkl",
+        prep_dir / "tokenizer",
+        prep_dir / "motor_task.pkl",
+        prep_dir / "train_batches",
+        prep_dir / "val_batches",
+    ]
+    for artifact in required_artifacts:
+        if not artifact.exists():
+            logger.error("Missing artifact: %s — run prepare_motor.py first", artifact)
+            return
 
     with open(prep_dir / "ontology.pkl", "rb") as f:
         ontology = pickle.load(f)
@@ -130,7 +142,7 @@ def main():
     # ------------------------------------------------------------------
     # 4. Configure Trainer
     # ------------------------------------------------------------------
-    trainer_args = transformers.TrainingArguments(
+    trainer_config = transformers.TrainingArguments(
         output_dir=str(out_dir),
         per_device_train_batch_size=PER_DEVICE_BATCH_SIZE,
         per_device_eval_batch_size=PER_DEVICE_BATCH_SIZE,
@@ -141,7 +153,6 @@ def main():
         warmup_steps=WARMUP_STEPS,
         num_train_epochs=NUM_EPOCHS,
         remove_unused_columns=False,
-        fp16=False,
         bf16=True,
         report_to="tensorboard",
         logging_strategy="steps",
@@ -149,12 +160,15 @@ def main():
         disable_tqdm=False,
         eval_strategy="steps",
         eval_steps=EVAL_EVERY_STEPS,
+        save_strategy="steps",
+        save_steps=EVAL_EVERY_STEPS,
         prediction_loss_only=True,
         dataloader_num_workers=DATALOADER_NUM_WORKERS,
         dataloader_prefetch_factor=DATALOADER_PREFETCH_FACTOR,
         dataloader_pin_memory=True,
         save_total_limit=SAVE_TOTAL_LIMIT,
         load_best_model_at_end=True,
+        metric_for_best_model="loss",
     )
 
     trainer = transformers.Trainer(
@@ -162,10 +176,10 @@ def main():
         data_collator=processor.collate,
         train_dataset=train_batches,
         eval_dataset=val_batches,
-        args=trainer_args,
+        args=trainer_config,
         callbacks=[
             transformers.EarlyStoppingCallback(
-                early_stopping_patience=EARLY_STOPPING_PATIENCE,
+                early_stopping_patience=EARLY_STOPPING_PATIENCE
             ),
         ],
     )
@@ -176,13 +190,11 @@ def main():
     logger.info("Starting training — output dir: %s", out_dir)
     trainer.train()
 
+    # Automatically save and copy the best model bundle to match your manual process
     final_dir = out_dir / "final"
     trainer.save_model(str(final_dir))
     logger.info("Best model saved to %s", final_dir)
 
-    # ------------------------------------------------------------------
-    # 6. Consolidate inference bundle into MOTOR_MODEL_DIR
-    # ------------------------------------------------------------------
     model_dir = Config.MOTOR_MODEL_DIR
     model_dir.mkdir(parents=True, exist_ok=True)
 
@@ -201,22 +213,20 @@ def main():
     else:
         logger.warning("dictionary.msgpack not found at %s — skipping", dict_src)
 
-    logger.info("Inference bundle ready at %s", model_dir)
-
-    # ------------------------------------------------------------------
-    # 7. Clean up ephemeral training artifacts
-    # ------------------------------------------------------------------
-    for pattern in ("checkpoint-*", "runs"):
-        for child in out_dir.glob(pattern):
-            if child.is_dir():
-                shutil.rmtree(child)
-                logger.info("Removed %s", child)
-
-    if final_dir.exists():
+    # Clean up ephemeral final/ only if the full inference bundle is in place
+    expected_bundle = ["config.json", "model.safetensors", "dictionary.msgpack"]
+    if all((model_dir / f).exists() for f in expected_bundle):
         shutil.rmtree(final_dir)
-        logger.info("Removed %s", final_dir)
+        logger.info("Removed ephemeral snapshot %s", final_dir)
+    else:
+        missing = [f for f in expected_bundle if not (model_dir / f).exists()]
+        logger.warning(
+            "Inference bundle incomplete (missing %s) — keeping %s",
+            missing,
+            final_dir,
+        )
 
-    logger.info("Training cleanup complete")
+    logger.info("Inference bundle ready at %s", model_dir)
 
 
 if __name__ == "__main__":

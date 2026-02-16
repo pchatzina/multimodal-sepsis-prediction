@@ -12,7 +12,7 @@ Every step is idempotent: if the output artifact already exists on disk it is
 loaded instead of recomputed, so the script can safely be re-run after a crash.
 
 Usage:
-    python -m src.models.ehr.foundation.prepare_motor
+    python -m src.models.foundation.ehr.prepare_motor
 """
 
 import logging
@@ -79,7 +79,7 @@ def build_or_load_ontology(database, ontology_path):
 
     logger.info("Building ontology (Athena: %s)", Config.ATHENA_VOCABULARY_DIR)
     ontology = femr.ontology.Ontology(
-        Config.ATHENA_VOCABULARY_DIR, Config.METADATA_MEDS_READER_DIR
+        Config.ATHENA_VOCABULARY_DIR, Config.METADATA_MEDS_READER_FILE
     )
 
     logger.info("Pruning ontology (removing %s)", PRUNED_ONTOLOGIES)
@@ -101,7 +101,12 @@ def create_or_load_split(database, split_path):
         logger.info("Loading existing split from %s", split_path)
         return femr.splits.PatientSplit.load_from_csv(split_path)
 
-    logger.info("Generating %d/%d split (seed=%d)", int(TRAIN_FRAC * 100), int(VAL_FRAC * 100), SPLIT_SEED)
+    logger.info(
+        "Generating %d/%d split (seed=%d)",
+        int(TRAIN_FRAC * 100),
+        int(VAL_FRAC * 100),
+        SPLIT_SEED,
+    )
     split = femr.splits.generate_hash_split(
         list(database), SPLIT_SEED, frac_test=VAL_FRAC
     )
@@ -120,7 +125,10 @@ def train_or_load_tokenizer(database, ontology, tokenizer_path):
 
     logger.info("Training tokenizer (vocab_size=%d)", VOCAB_SIZE)
     tokenizer = femr.models.tokenizer.HierarchicalTokenizer.train(
-        database, vocab_size=VOCAB_SIZE, ontology=ontology, min_fraction=TOKENIZER_MIN_FRACTION
+        database,
+        vocab_size=VOCAB_SIZE,
+        ontology=ontology,
+        min_fraction=TOKENIZER_MIN_FRACTION,
     )
     tokenizer.save_pretrained(tokenizer_path)
     logger.info("Tokenizer saved to %s", tokenizer_path)
@@ -134,7 +142,11 @@ def fit_or_load_motor_task(train_database, tokenizer, task_path):
         with open(task_path, "rb") as f:
             return pickle.load(f)
 
-    logger.info("Fitting MOTOR task (num_tasks=%d, num_bins=%d)", MOTOR_NUM_TASKS, MOTOR_NUM_BINS)
+    logger.info(
+        "Fitting MOTOR task (num_tasks=%d, num_bins=%d)",
+        MOTOR_NUM_TASKS,
+        MOTOR_NUM_BINS,
+    )
     motor_task = femr.models.tasks.MOTORTask.fit_pretraining_task_info(
         train_database,
         tokenizer,
@@ -151,11 +163,17 @@ def fit_or_load_motor_task(train_database, tokenizer, task_path):
 def convert_or_load_batches(processor, database, batches_path, split_name):
     """Tokenise a database view into HuggingFace batches or skip if cached."""
     if batches_path.exists():
-        logger.info("%s batches already exist at %s — skipping", split_name, batches_path)
+        logger.info(
+            "%s batches already exist at %s — skipping", split_name, batches_path
+        )
         return
 
-    logger.info("Converting %s batches (tokens_per_batch=%d, num_proc=%d)",
-                split_name, TOKENS_PER_BATCH, NUM_PROC)
+    logger.info(
+        "Converting %s batches (tokens_per_batch=%d, num_proc=%d)",
+        split_name,
+        TOKENS_PER_BATCH,
+        NUM_PROC,
+    )
     batches = processor.convert_dataset(
         database,
         tokens_per_batch=TOKENS_PER_BATCH,
@@ -184,19 +202,18 @@ def main():
         str(Config.PRETRAINING_MEDS_READER_DIR), num_threads=NUM_PROC
     ) as database:
         # 1. Ontology
-        ontology = build_or_load_ontology(
-            database, output_dir / "ontology.pkl"
-        )
+        ontology = build_or_load_ontology(database, output_dir / "ontology.pkl")
 
         # 2. Split
-        main_split = create_or_load_split(
-            database, output_dir / "split.csv"
-        )
+        main_split = create_or_load_split(database, output_dir / "split.csv")
 
         train_database = database.filter(main_split.train_subject_ids)
         val_database = database.filter(main_split.test_subject_ids)
-        logger.info("Train subjects: %d | Val subjects: %d",
-                     len(train_database), len(val_database))
+        logger.info(
+            "Train subjects: %d | Val subjects: %d",
+            len(train_database),
+            len(val_database),
+        )
 
         # 3. Tokenizer
         tokenizer = train_or_load_tokenizer(

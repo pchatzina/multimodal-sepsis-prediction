@@ -21,7 +21,6 @@ from src.utils.config import Config
 # ==========================================
 
 PREP_DIR = Config.MOTOR_PRETRAINING_FILES_DIR
-MODEL_OUTPUT_DIR = Config.MOTOR_MODEL_OUTPUT_DIR
 MODEL_DIR = Config.MOTOR_MODEL_DIR
 
 
@@ -54,7 +53,7 @@ class TestConstantsSanity:
     """Guard-rails on the module-level hyperparameters / constants."""
 
     def test_prepare_constants(self):
-        from src.models.ehr.foundation.prepare_motor import (
+        from src.models.foundation.ehr.prepare_motor import (
             TOKENS_PER_BATCH,
             NUM_PROC,
             TRAIN_FRAC,
@@ -72,7 +71,7 @@ class TestConstantsSanity:
         assert MOTOR_NUM_BINS > 0
 
     def test_pretrain_constants(self):
-        from src.models.ehr.foundation.pretrain_motor import (
+        from src.models.foundation.ehr.pretrain_motor import (
             N_LAYERS,
             LEARNING_RATE,
             WEIGHT_DECAY,
@@ -91,6 +90,7 @@ class TestConstantsSanity:
         assert PER_DEVICE_BATCH_SIZE >= 1
         assert GRADIENT_ACCUMULATION_STEPS >= 1
         assert EARLY_STOPPING_PATIENCE >= 1
+
 
 # ==========================================
 # PREPARATION ARTIFACT TESTS
@@ -161,6 +161,18 @@ class TestPreparationArtifacts:
         )
         assert tokenizer.vocab_size > 0
 
+    @pytest.mark.parametrize("split", ["train_batches", "val_batches"])
+    def test_batches_loadable(self, split):
+        """Batch datasets must load as HuggingFace Datasets with rows."""
+        path = PREP_DIR / split
+        if not path.exists():
+            pytest.skip(f"{split} not found")
+
+        import datasets
+
+        ds = datasets.Dataset.load_from_disk(path)
+        assert len(ds) > 0, f"{split} loaded but has 0 rows"
+
 
 # ==========================================
 # PRETRAINING OUTPUT TESTS
@@ -188,6 +200,22 @@ class TestInferenceBundle:
             pytest.skip("MOTOR_MODEL_DIR does not exist yet")
         assert path.exists(), f"Missing inference file: {path}"
         assert path.stat().st_size > 0, f"Inference file is empty: {path}"
+
+    def test_model_loadable(self):
+        """Model config + weights must load without error."""
+        if not MODEL_DIR.exists():
+            pytest.skip("MOTOR_MODEL_DIR does not exist yet")
+        config_path = MODEL_DIR / "config.json"
+        weights_path = MODEL_DIR / "model.safetensors"
+        if not config_path.exists() or not weights_path.exists():
+            pytest.skip("Model files not yet available")
+
+        import femr.models.config
+        import femr.models.transformer
+
+        config = femr.models.config.FEMRModelConfig.from_pretrained(MODEL_DIR)
+        model = femr.models.transformer.FEMRModel(config)
+        assert model is not None
 
 
 # ==========================================

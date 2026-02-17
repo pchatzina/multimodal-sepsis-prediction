@@ -82,6 +82,30 @@ python -m src.models.ehr.foundation.prepare_motor
 python -m src.models.ehr.foundation.pretrain_motor
 ```
 
+### EHR Feature Extraction
+After the foundation model is pretrained, extract fixed-length embedding vectors for each patient at their specific sepsis prediction time (anchor time).
+
+```bash
+# 1. Generate prediction labels and anchor times for the cohort
+python -m src.scripts.labelers.ehr_labels
+
+# 2. Extract and save standardized .pt embeddings for train/val/test splits
+python -m src.scripts.extract_embeddings.extract_ehr_embeddings
+```
+
+### EHR Downstream Classifiers
+With the embeddings extracted, we train independent unimodal classifiers to predict sepsis onset strictly from the EHR data. These probabilities will later feed into the Gating Network for Late-Fusion.
+
+```bash
+# 1. Train Unimodal Classifiers
+python -m src.models.unimodal.logistic_regression.train_ehr_lr
+python -m src.models.unimodal.xgboost.train_ehr_xgboost
+python -m src.models.unimodal.mlp.train_ehr_mlp
+
+# 2. Generate Markdown comparison reports for the classifiers
+python -m src.scripts.reports.unimodal.compare_classifiers --modality ehr
+```
+
 ## ⚖️ License & Data Usage
 
 ### Code License

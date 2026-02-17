@@ -18,8 +18,9 @@ class Config:
     _raw_env = os.getenv("RAW_DATA_DIR")
     _processed_env = os.getenv("PROCESSED_DATA_DIR")
     _models_env = os.getenv("MODELS_DATA_DIR")
+    _results_env = os.getenv("RESULTS_DATA_DIR")
 
-    if not all([_raw_env, _processed_env, _models_env]):
+    if not all([_raw_env, _processed_env, _models_env, _results_env]):
         print("ERROR: Missing data directories in .env file", file=sys.stderr)
         sys.exit(1)
 
@@ -73,7 +74,6 @@ class Config:
     METADATA_MEDS_READER_FILE = (
         Path(_processed_env) / "ehr/pretraining/mimic-iv-meds/metadata/codes.parquet"
     )
-    MOTOR_FEATURES_DIR = Path(_processed_env) / "ehr/features"
     EHR_LABELS_DIR = Path(_processed_env) / "ehr/labels"
     EHR_EMBEDDINGS_DIR = Path(_processed_env) / "ehr" / "embeddings"
 
@@ -83,18 +83,19 @@ class Config:
     ECG_XGBOOST_MODEL_DIR = Path(_models_env) / "ecg/xgboost"
     ECG_LR_MODEL_DIR = Path(_models_env) / "ecg/lr"
     # EHR — MOTOR foundation model
-    ATHENA_VOCABULARY_DIR = Path(_models_env) / "motor/athena_vocabulary"
-    MOTOR_PRETRAINING_FILES_DIR = Path(_models_env) / "motor/pretraining_files"
-    MOTOR_MODEL_OUTPUT_DIR = Path(_models_env) / "motor/pretraining_output"
-    MOTOR_MODEL_DIR = Path(_models_env) / "motor/model"
+    ATHENA_VOCABULARY_DIR = Path(_models_env) / "ehr/motor/athena_vocabulary"
+    MOTOR_PRETRAINING_FILES_DIR = Path(_models_env) / "ehr/motor/pretraining_files"
+    MOTOR_MODEL_OUTPUT_DIR = Path(_models_env) / "ehr/motor/pretraining_output"
+    MOTOR_MODEL_DIR = Path(_models_env) / "ehr/motor/model"
     # EHR — downstream classifiers
     EHR_LR_MODEL_DIR = Path(_models_env) / "ehr/lr"
     EHR_XGBOOST_MODEL_DIR = Path(_models_env) / "ehr/xgboost"
     EHR_MLP_MODEL_DIR = Path(_models_env) / "ehr/mlp"
 
     # ── RESULTS & TENSORBOARD ───────────────────────────────────────────
-    RESULTS_DIR = Path(_processed_env) / "results"
-    TENSORBOARD_LOG_DIR = Path(_processed_env) / "results" / "tensorboard"
+    RESULTS_DIR = Path(_results_env)
+    TENSORBOARD_LOG_DIR = Path(_results_env) / "tensorboard"
+    REPORTS_DIR = PROJECT_ROOT / "reports"
 
     # ── METHODS ─────────────────────────────────────────────────────────
     @classmethod
@@ -104,13 +105,15 @@ class Config:
             cls.RAW_ECG_DIR,
             cls.RAW_CXR_IMG_DIR,
             cls.RAW_CXR_TXT_DIR,
-            cls.MOTOR_FEATURES_DIR,
             cls.MOTOR_PRETRAINING_FILES_DIR,
             cls.MOTOR_MODEL_OUTPUT_DIR,
             cls.MOTOR_MODEL_DIR,
             cls.ECG_EMBEDDINGS_DIR,
             cls.EHR_EMBEDDINGS_DIR,
             cls.ATHENA_VOCABULARY_DIR,
+            cls.RESULTS_DIR,
+            cls.REPORTS_DIR,
+            cls.EHR_LABELS_DIR,
         ]
 
         for path in paths_to_create:

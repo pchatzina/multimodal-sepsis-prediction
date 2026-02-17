@@ -24,6 +24,10 @@ pytest tests/test_ehr_exports.py::TestCohortExport::test_no_non_cohort_subjects 
 | `test_data_splitting.py` | Split completeness, no leakage, 70/15/15 ratios | Phase 5 complete |
 | `test_ehr_exports.py` | EHR CSV exports match DB (cohort filter, test-split exclusion) | EHR export scripts run |
 | `test_motor_pipeline.py` | MOTOR pretraining artifacts, inference bundle, Config consistency | `prepare_motor` + `pretrain_motor` run |
+| `test_evaluation.py` | Shared evaluation metrics, data loaders, and file saving utilities using synthetic data | None (Runs independently) |
+| `test_labels.py` | Structure, types, and consistency of the label generation artifacts (e.g., labels.parquet) | Labeler scripts run |
+| `test_embeddings.py` | Extracted feature tensors (_embeddings.pt) across data splits and modalities | Embedding extraction scripts run |
+| `test_classifiers.py` | Downstream classifier models, scalers, and results outputs (metrics, predictions) | Classifier training scripts run |
 
 ## Shared Fixtures
 

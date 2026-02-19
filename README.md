@@ -18,6 +18,7 @@ By processing each modality independently before fusion, the model aims to maxim
 * `src/`: Source code for model definitions, preprocessing logic, and utilities.
 * `scripts/`: Execution scripts for data acquisition, database setup, and pipeline orchestration.
 * `tests/`: Validation tests to ensure data integrity and split stratification.
+* `reports/`: Results of models currently in markdown format.
 
 ## 🚀 Getting Started
 
@@ -70,16 +71,16 @@ python -m src.utils.bash_wrapper meds-pipeline pretraining
 ```
 
 ### EHR Model Pretraining (MOTOR)
-Once the MEDS-formatted data is ready, pretrain the [MOTOR](https://github.com/som-shahlab/femr) foundation model to learn temporal patient representations from EHR histories.
+Once the MEDS-formatted data is ready, pretrain the [MOTOR](https://huggingface.co/StanfordShahLab/motor-t-base) foundation model to learn temporal patient representations from EHR histories.
 
-The pipeline has two stages — see [src/models/ehr/foundation/README.md](src/models/ehr/foundation/README.md) for full details, prerequisites (Athena vocabularies, UMLS key), and hyperparameter tables.
+The pipeline has two stages — see [src/models/foundation/ehr/README.md](src/models/foundation/ehr/README.md) for full details, prerequisites (Athena vocabularies, UMLS key), and hyperparameter tables.
 
 ```bash
 # 1. Build pretraining artifacts (ontology, tokenizer, batches)
-python -m src.models.ehr.foundation.prepare_motor
+python -m src.models.foundation.ehr.prepare_motor
 
 # 2. Pretrain MOTOR transformer (saves inference bundle to models/motor/model/)
-python -m src.models.ehr.foundation.pretrain_motor
+python -m src.models.foundation.ehr.pretrain_motor
 ```
 
 ### EHR Feature Extraction

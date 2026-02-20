@@ -1,8 +1,8 @@
 """Compare unimodal classifier results and generate Markdown reports.
 
-Reads ``test_metrics.json`` and ``val_metrics.json`` from each classifier's
-results directory, prints a formatted comparison table, and writes a
-Markdown file per modality to ``Config.RESULTS_DIR / "unimodal"``.
+Reads test and val metrics from each classifier's results directory,
+prints a formatted comparison table, and writes a Markdown file per
+modality to ``Config.REPORTS_DIR / "unimodal"``.
 
 Usage:
     python -m src.scripts.reports.unimodal.compare_classifiers              # all modalities
@@ -23,16 +23,47 @@ logger = logging.getLogger(__name__)
 # REGISTRY
 # ==========================================
 
-# (display_name, results_dir) per classifier, grouped by modality.
+# (display_name, results_dir, test_filename, val_filename) per classifier, grouped by modality.
 MODALITY_CLASSIFIERS = {
     "ehr": [
-        ("LR", Config.RESULTS_DIR / "ehr" / "lr"),
-        ("XGBoost", Config.RESULTS_DIR / "ehr" / "xgboost"),
-        ("MLP", Config.RESULTS_DIR / "ehr" / "mlp"),
+        (
+            "LR",
+            Config.RESULTS_DIR / "ehr" / "lr",
+            "test_metrics.json",
+            "val_metrics.json",
+        ),
+        (
+            "XGBoost",
+            Config.RESULTS_DIR / "ehr" / "xgboost",
+            "test_metrics.json",
+            "val_metrics.json",
+        ),
+        (
+            "MLP",
+            Config.RESULTS_DIR / "ehr" / "mlp",
+            "test_metrics.json",
+            "val_metrics.json",
+        ),
     ],
     "ecg": [
-        ("LR", Config.RESULTS_DIR / "ecg" / "lr"),
-        ("XGBoost", Config.RESULTS_DIR / "ecg" / "xgboost"),
+        (
+            "LR",
+            Config.RESULTS_DIR / "ecg" / "lr",
+            "test_metrics_lr.json",
+            "val_metrics_lr.json",
+        ),
+        (
+            "XGBoost",
+            Config.RESULTS_DIR / "ecg" / "xgboost",
+            "test_metrics_xgb.json",
+            "val_metrics_xgb.json",
+        ),
+        (
+            "MLP",
+            Config.RESULTS_DIR / "ecg" / "mlp",
+            "test_metrics_mlp.json",
+            "val_metrics_mlp.json",
+        ),
     ],
 }
 
@@ -74,19 +105,25 @@ def find_best(values: list[float | None]) -> int | None:
     return max(valid, key=lambda x: x[1])[0]
 
 
-def build_report(modality: str, classifiers: list[tuple[str, Path]]) -> str | None:
+def build_report(
+    modality: str, classifiers: list[tuple[str, Path, str, str | None]]
+) -> str | None:
     """Build a Markdown report string for one modality. Returns None if no data."""
     all_test = []
     all_val = []
     names = []
-    for name, results_dir in classifiers:
-        test_m = load_metrics(results_dir, "test_metrics.json")
-        val_m = load_metrics(results_dir, "val_metrics.json")
+
+    # Unpack the 4-tuple configuration
+    for name, results_dir, test_fn, val_fn in classifiers:
+        test_m = load_metrics(results_dir, test_fn) if test_fn else None
+        val_m = load_metrics(results_dir, val_fn) if val_fn else None
+
         if test_m is None:
             logger.warning(
-                "Skipping %s — test_metrics.json not found at %s", name, results_dir
+                "Skipping %s — %s not found at %s", name, test_fn, results_dir
             )
             continue
+
         all_test.append(test_m)
         all_val.append(val_m)
         names.append(name)

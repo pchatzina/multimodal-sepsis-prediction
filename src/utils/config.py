@@ -1,8 +1,12 @@
 import logging
 import os
+import random  # Added for seeding
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
+
+import numpy as np  # Added for seeding
+import torch  # Added for seeding
 
 # Load environment variables from .env file
 load_dotenv()
@@ -24,6 +28,7 @@ class Config:
         print("ERROR: Missing data directories in .env file", file=sys.stderr)
         sys.exit(1)
 
+    # ... (Keep all your existing paths and DB variables here exactly as they were) ...
     # ── DATABASE CREDENTIALS ────────────────────────────────────────────
     DB_HOST = os.getenv("DB_HOST", "localhost")
     DB_PORT = os.getenv("DB_PORT", "5432")
@@ -82,6 +87,7 @@ class Config:
     ECG_PRETRAINED_MODEL_DIR = Path(_models_env) / "ecg/pretrained"
     ECG_XGBOOST_MODEL_DIR = Path(_models_env) / "ecg/xgboost"
     ECG_LR_MODEL_DIR = Path(_models_env) / "ecg/lr"
+    ECG_MLP_MODEL_DIR = Path(_models_env) / "ecg/mlp"
     # EHR — MOTOR foundation model
     ATHENA_VOCABULARY_DIR = Path(_models_env) / "ehr/motor/athena_vocabulary"
     MOTOR_PRETRAINING_FILES_DIR = Path(_models_env) / "ehr/motor/pretraining_files"
@@ -114,6 +120,8 @@ class Config:
             cls.RESULTS_DIR,
             cls.REPORTS_DIR,
             cls.EHR_LABELS_DIR,
+            cls.ECG_PRETRAINED_MODEL_DIR,
+            cls.ECG_MLP_MODEL_DIR,
         ]
 
         for path in paths_to_create:
@@ -133,3 +141,24 @@ class Config:
             level=level,
             format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         )
+
+    # ── ADDED FOR REPRODUCIBILITY ───────────────────────────────────────
+    @staticmethod
+    def set_seed(seed: int = 42) -> None:
+        """Locks all random seeds for strict reproducibility across the project."""
+        logger.info(f"Setting global random seed to {seed}...")
+
+        # 1. Core Python
+        os.environ["PYTHONHASHSEED"] = str(seed)
+        random.seed(seed)
+
+        # 2. NumPy (Affects Scikit-Learn Logistic Regression & Data splits)
+        np.random.seed(seed)
+
+        # 3. PyTorch (Affects MLPs and Foundation Model embeddings)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False

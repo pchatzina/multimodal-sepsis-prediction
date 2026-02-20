@@ -53,59 +53,37 @@ The complete pipeline for downloading raw files, building the database schemas, 
 
 👉 **[Go to Data Setup Guide](scripts/README.md)**
 
-### EHR Preprocessing
-After the data acquisition pipeline is complete, export and transform the tabular EHR data for the MOTOR foundation model.
 
-A Python CLI wrapper (`src/utils/bash_wrapper.py`) runs the bash scripts with the correct environment variables from `Config`.
+## 🧩 Pipeline Overview
 
-```bash
-# 1. Export cohort-only EHR data (subjects in mimiciv_ext.cohort)
-python -m src.utils.bash_wrapper export-cohort
+1. **Data Preprocessing**
+	- [EHR Preprocessing](src/data/preprocess/ehr/): Export, clean, and transform tabular EHR data for downstream modeling.
+	- [ECG Preprocessing](src/data/preprocess/ecg/): Extract, clean, and standardize raw ECG waveform data for downstream modeling. See subfolder for details.
 
-# 2. Export pretraining EHR data (all subjects EXCEPT test split)
-python -m src.utils.bash_wrapper export-pretraining
+2. **Embeddings Extraction**
+	- [EHR Embeddings](src/scripts/extract_embeddings/): Generate patient-level embeddings using the pretrained MOTOR foundation model.
+	  - _Requires MOTOR foundation model pretraining. See [src/models/foundation/ehr/README.md](src/models/foundation/ehr/README.md) for instructions._
+	- [ECG Embeddings](src/scripts/extract_embeddings/): Generate patient-level ECG embeddings using the frozen ECG-FM model. See subfolder for details.
 
-# 3. Convert exported CSVs to MEDS format
-python -m src.utils.bash_wrapper meds-pipeline cohort
-python -m src.utils.bash_wrapper meds-pipeline pretraining
-```
+3. **Unimodal Classifiers**
+	- [Run Classifiers](src/models/unimodal/): Train and evaluate unimodal models (LR, XGBoost, MLP) on EHR embeddings.
 
-### EHR Model Pretraining (MOTOR)
-Once the MEDS-formatted data is ready, pretrain the [MOTOR](https://huggingface.co/StanfordShahLab/motor-t-base) foundation model to learn temporal patient representations from EHR histories.
+4. **Results**
+	- [Comparison Reports](src/scripts/reports/unimodal/): View performance metrics and comparison reports.
 
-The pipeline has two stages — see [src/models/foundation/ehr/README.md](src/models/foundation/ehr/README.md) for full details, prerequisites (Athena vocabularies, UMLS key), and hyperparameter tables.
 
-```bash
-# 1. Build pretraining artifacts (ontology, tokenizer, batches)
-python -m src.models.foundation.ehr.prepare_motor
 
-# 2. Pretrain MOTOR transformer (saves inference bundle to models/motor/model/)
-python -m src.models.foundation.ehr.pretrain_motor
-```
+## 🧪 Validation & Testing
 
-### EHR Feature Extraction
-After the foundation model is pretrained, extract fixed-length embedding vectors for each patient at their specific sepsis prediction time (anchor time).
+After completing each pipeline stage, you can validate outputs and data integrity using the provided integration tests:
 
 ```bash
-# 1. Generate prediction labels and anchor times for the cohort
-python -m src.scripts.labelers.ehr_labels
-
-# 2. Extract and save standardized .pt embeddings for train/val/test splits
-python -m src.scripts.extract_embeddings.extract_ehr_embeddings
+pytest tests/ -v
 ```
 
-### EHR Downstream Classifiers
-With the embeddings extracted, we train independent unimodal classifiers to predict sepsis onset strictly from the EHR data. These probabilities will later feed into the Gating Network for Late-Fusion.
+See [tests/README.md](tests/README.md) for details on individual test files and their requirements.
 
-```bash
-# 1. Train Unimodal Classifiers
-python -m src.models.unimodal.logistic_regression.train_ehr_lr
-python -m src.models.unimodal.xgboost.train_ehr_xgboost
-python -m src.models.unimodal.mlp.train_ehr_mlp
-
-# 2. Generate Markdown comparison reports for the classifiers
-python -m src.scripts.reports.unimodal.compare_classifiers --modality ehr
-```
+---
 
 ## ⚖️ License & Data Usage
 
@@ -118,4 +96,11 @@ This project relies on the MIMIC-IV dataset, which is a restricted-access resour
 * Users must sign the Data Use Agreement (DUA) for MIMIC-IV, MIMIC-CXR, and MIMIC-IV-ECG.
 
 ## 🚧 Status
-**Work in Progress.** The data acquisition, cohort definition, EHR preprocessing, and EHR model pretraining (MOTOR) pipelines are complete. Embedding extraction, downstream classifiers, ECG/CXR pipelines, and the late-fusion model are under development.
+**Current Status:**
+- Data acquisition: complete
+- EHR and ECG preprocessing: complete
+- EHR and ECG embeddings extraction: complete
+- Unimodal classifiers (EHR and ECG, all types): complete
+- Testing for all the above: complete
+
+CXR and fusion pipelines: not started.

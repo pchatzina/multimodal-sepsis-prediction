@@ -47,29 +47,32 @@ logger = logging.getLogger(__name__)
 
 def load_embeddings(
     filepath: Union[str, Path],
-) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+) -> Tuple[np.ndarray, np.ndarray, List[int]]:  # 1. Update return type hint
     """Load a ``.pt`` embedding file.
 
     Expected format (produced by every extract_embeddings script)::
 
         {
             "embeddings": Tensor[N, D],
-            "labels":     List[str],       # "0" / "1"
-            "sample_ids": List[str],
+            "labels":     List[int],       # 0 / 1
+            "sample_ids": List[int],
         }
 
     Returns:
         X:          np.ndarray of shape (N, D), float32
         y:          np.ndarray of shape (N,), int
-        sample_ids: list of str
+        sample_ids: list of int
     """
     filepath = Path(filepath)
     logger.info("Loading embeddings from %s", filepath)
     data = torch.load(filepath, map_location="cpu", weights_only=False)
 
     X = data["embeddings"].cpu().numpy().astype(np.float32)
+    # You can leave this int() cast as a safety net just in case
     y = np.array([int(label) for label in data["labels"]], dtype=int)
-    sample_ids = list(data["sample_ids"])
+
+    # 2. Force cast all IDs to int
+    sample_ids = [int(sid) for sid in data["sample_ids"]]
 
     logger.info("  → %d samples, dim %d", X.shape[0], X.shape[1])
     return X, y, sample_ids

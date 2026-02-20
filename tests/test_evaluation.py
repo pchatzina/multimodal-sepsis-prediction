@@ -163,10 +163,10 @@ class TestLoadEmbeddings:
         _, y, _ = load_embeddings(path)
         assert set(np.unique(y)) <= {0, 1}
 
-    def test_sample_ids_are_strings(self, sample_pt_file):
+    def test_sample_ids_are_int(self, sample_pt_file):
         path, _, _ = sample_pt_file
         _, _, ids = load_embeddings(path)
-        assert all(isinstance(s, str) for s in ids)
+        assert all(isinstance(s, int) for s in ids)
 
     def test_missing_file_raises(self, tmp_path):
         with pytest.raises(FileNotFoundError):

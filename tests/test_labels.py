@@ -16,13 +16,6 @@ import pytest
 from src.utils.config import Config
 
 # ==========================================
-# PATHS
-# ==========================================
-
-EHR_LABELS_DIR = Config.EHR_LABELS_DIR
-
-
-# ==========================================
 # EHR LABEL TESTS
 # ==========================================
 
@@ -32,7 +25,7 @@ class TestEHRLabels:
 
     @pytest.fixture(scope="class")
     def labels_df(self):
-        path = EHR_LABELS_DIR / "labels.parquet"
+        path = Config.EHR_LABELS_DIR / "labels.parquet"
         if not path.exists():
             pytest.skip("EHR labels.parquet not found — run ehr_labels first")
         return pd.read_parquet(path)
@@ -71,4 +64,47 @@ class TestEHRLabels:
         values = labels_df["boolean_value"].unique()
         assert True in values and False in values, (
             f"Expected both classes, got: {values}"
+        )
+
+
+# ==========================================
+# ECG LABEL TESTS
+# ==========================================
+
+
+class TestECGLabels:
+    """Validate labels.csv produced by ecg_labels.py."""
+
+    @pytest.fixture(scope="class")
+    def labels_df(self):
+        path = Config.ECG_LABELS_DIR / "labels.csv"
+        if not path.exists():
+            pytest.skip("ECG labels.csv not found — run ecg_labels first")
+        return pd.read_csv(path)
+
+    def test_required_columns(self, labels_df):
+        required = {"split", "id", "sample_id", "label"}
+        assert required.issubset(labels_df.columns), (
+            f"Missing columns: {required - set(labels_df.columns)}"
+        )
+
+    def test_not_empty(self, labels_df):
+        assert len(labels_df) > 0, "Labels file is empty"
+
+    def test_ids_are_integers(self, labels_df):
+        assert pd.api.types.is_integer_dtype(labels_df["sample_id"]), (
+            f"Expected integer sample_id, got {labels_df['sample_id'].dtype}"
+        )
+        assert pd.api.types.is_integer_dtype(labels_df["label"]), (
+            f"Expected integer label, got {labels_df['label'].dtype}"
+        )
+
+    def test_no_null_values(self, labels_df):
+        nulls = labels_df.isnull().sum()
+        assert nulls.sum() == 0, f"Null values found:\n{nulls[nulls > 0]}"
+
+    def test_has_both_classes(self, labels_df):
+        values = labels_df["label"].unique()
+        assert 1 in values and 0 in values, (
+            f"Expected both classes (0, 1), got: {values}"
         )

@@ -19,8 +19,6 @@ from src.utils.config import Config
 # PATHS
 # ==========================================
 
-EHR_EMBEDDINGS_DIR = Config.EHR_EMBEDDINGS_DIR
-
 SPLITS = ["train", "valid", "test"]
 
 
@@ -36,9 +34,13 @@ class _BaseEmbeddingTests:
 
     @pytest.fixture(scope="class", params=SPLITS)
     def embedding_data(self, request):
+        if self.EMBEDDINGS_DIR is None:
+            pytest.skip("Base class")
+
         path = self.EMBEDDINGS_DIR / f"{request.param}_embeddings.pt"
         if not path.exists():
             pytest.skip(f"{path.name} not found")
+
         return torch.load(path, map_location="cpu", weights_only=False), request.param
 
     def test_required_keys(self, embedding_data):
@@ -64,9 +66,18 @@ class _BaseEmbeddingTests:
         assert not torch.isnan(emb).any(), "NaN in embeddings"
         assert not torch.isinf(emb).any(), "Inf in embeddings"
 
-    def test_labels_are_binary_strings(self, embedding_data):
+    def test_embeddings_not_collapsed(self, embedding_data):
+        """Ensures embeddings have some variance (ported from manual verify script)."""
         data, _ = embedding_data
-        assert all(l in ("0", "1") for l in data["labels"])
+        emb = data["embeddings"]
+        assert emb.std().item() > 0.0, (
+            "Embeddings standard deviation is 0 (collapsed representation)"
+        )
+
+    def test_labels_are_binary(self, embedding_data):
+        """Allows both integer and string representations of binary labels."""
+        data, _ = embedding_data
+        assert all(str(l) in ("0", "1") for l in data["labels"])
 
     def test_sample_ids_unique(self, embedding_data):
         data, _ = embedding_data
@@ -101,8 +112,23 @@ class _BaseEmbeddingTests:
 
     def test_has_both_classes(self, embedding_data):
         data, _ = embedding_data
-        labels = set(data["labels"])
+        # Cast to strings for safe set comparison regardless of underlying type
+        labels = set(str(l) for l in data["labels"])
         assert labels == {"0", "1"}, f"Expected both classes, got {labels}"
+
+    def test_data_types_are_integers(self, embedding_data):
+        """Ensures that both labels and sample_ids are saved strictly as integers."""
+        data, _ = embedding_data
+
+        # Check labels
+        assert all(isinstance(label, int) for label in data["labels"]), (
+            "All labels must be of type int (not str)"
+        )
+
+        # Check sample_ids
+        assert all(isinstance(sid, int) for sid in data["sample_ids"]), (
+            "All sample_ids must be of type int (not str) for Late-Fusion alignment"
+        )
 
 
 # ==========================================
@@ -114,3 +140,14 @@ class TestEHREmbeddings(_BaseEmbeddingTests):
     """EHR embedding validation."""
 
     EMBEDDINGS_DIR = Config.EHR_EMBEDDINGS_DIR
+
+
+# ==========================================
+# ECG EMBEDDINGS
+# ==========================================
+
+
+class TestECGEmbeddings(_BaseEmbeddingTests):
+    """ECG embedding validation."""
+
+    EMBEDDINGS_DIR = Config.ECG_EMBEDDINGS_DIR

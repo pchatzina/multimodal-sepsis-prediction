@@ -10,7 +10,7 @@ This file is consumed by ``extract_ehr_embeddings.py`` which passes
 the labels to ``femr.models.transformer.compute_features``.
 
 Usage:
-    python -m src.scripts.labelers.ehr_labels
+    python -m src.data.preprocess.labelers.ehr_labels
 """
 
 import logging

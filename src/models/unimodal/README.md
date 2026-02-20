@@ -51,6 +51,7 @@ Uses early stopping on validation AUROC.
 Two-hidden-layer feed-forward network (256 → 64 → 1) with BatchNorm,
 dropout, and early stopping. Trained with PyTorch + `BCEWithLogitsLoss`.
 
+
 ## Running
 
 All scripts must be run as modules from the project root:
@@ -61,6 +62,20 @@ python -m src.models.unimodal.logistic_regression.train_ehr_lr
 python -m src.models.unimodal.xgboost.train_ehr_xgboost
 python -m src.models.unimodal.mlp.train_ehr_mlp
 ```
+
+### Batch Running: `run_classifiers.py`
+
+To run all available unimodal classifier scripts sequentially, or only those for a specific modality, use:
+
+```bash
+# Run all classifiers
+python -m src.models.unimodal.run_classifiers
+
+# Run only classifiers for a specific modality (e.g., 'ehr' or 'ecg')
+python -m src.models.unimodal.run_classifiers --modality ehr
+```
+
+This script will automatically discover and execute all `train_*.py` scripts in each modality subfolder.
 
 ## Metrics
 
@@ -95,6 +110,6 @@ pytest tests/test_classifiers.py -v
 | Modality | Foundation Model | Status |
 |----------|-----------------|--------|
 | EHR | MOTOR (`motor-t-base`) | ✅ Complete |
-| ECG | ECG-FM (`ecg-fm`) | 🔲 Planned |
+| ECG | ECG-FM (`ecg-fm`) |  ✅ Complete |
 | CXR images | TBD | 🔲 Planned |
 | CXR reports | TBD | 🔲 Planned |

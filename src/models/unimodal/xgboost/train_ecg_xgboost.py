@@ -1,20 +1,22 @@
 """
-Trains a Logistic Regression linear probe on the extracted EHR (MOTOR) embeddings.
+Trains an XGBoost classifier on the extracted ECG embeddings.
+
+Features:
+- GPU-accelerated training with early stopping.
+- Logs training and validation metrics to TensorBoard.
+- Centralized metric computation using `src.utils.evaluation`.
 
 Usage:
-    python -m src.models.unimodal.logistic_regression.train_ehr_lr
+    python -m src.models.unimodal.xgboost.train_ecg_xgboost
 """
 
-
 import logging
-import joblib
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
+import xgboost as xgb
 from torch.utils.tensorboard import SummaryWriter
 from src.utils.config import Config
 from src.utils.evaluation import (
-    compute_metrics,
     load_embeddings,
+    compute_metrics,
     log_metrics_to_tensorboard,
     print_metrics,
     save_metrics,
@@ -26,19 +28,37 @@ logger = logging.getLogger(__name__)
 # ==========================================
 # CONFIGURATION
 # ==========================================
-embeddings_dir = Config.EHR_EMBEDDINGS_DIR
-output_dir = Config.EHR_LR_MODEL_DIR
-results_dir = Config.RESULTS_DIR / "ehr" / "lr"
-model_save_path = output_dir / "model.joblib"
-scaler_save_path = output_dir / "scaler.joblib"
+embeddings_dir = Config.ECG_EMBEDDINGS_DIR
+output_dir = Config.ECG_XGBOOST_MODEL_DIR
+results_dir = Config.RESULTS_DIR / "ecg" / "xgboost"
+model_save_path = output_dir / "model.json"
 metrics_save_path = results_dir / "test_metrics.json"
 predictions_save_path = results_dir / "test_predictions.csv"
 val_metrics_save_path = results_dir / "val_metrics.json"
+tb_log_dir = Config.TENSORBOARD_LOG_DIR / "ecg" / "xgboost"
+
+# XGBoost Hyperparameters
+XGB_PARAMS = {
+    "objective": "binary:logistic",
+    "eval_metric": ["auc", "aucpr"],
+    "tree_method": "hist",
+    "device": "cuda",
+    "learning_rate": 0.05,
+    "max_depth": 6,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "random_state": 42,
+    "verbosity": 1,
+}
+NUM_BOOST_ROUND = 1000
+EARLY_STOPPING_ROUNDS = 50
+VERBOSE_EVAL = 50
 
 
 # ==========================================
 # MAIN EXECUTION
 # ==========================================
+
 
 def main():
     Config.setup_logging()
@@ -46,41 +66,42 @@ def main():
 
     output_dir.mkdir(parents=True, exist_ok=True)
     results_dir.mkdir(parents=True, exist_ok=True)
+    tb_log_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.info("Initializing TensorBoard at %s", tb_log_dir)
+    writer = SummaryWriter(log_dir=str(tb_log_dir))
 
     logger.info("--- Loading Data ---")
     X_train, y_train, _ = load_embeddings(embeddings_dir / "train_embeddings.pt")
     X_val, y_val, _ = load_embeddings(embeddings_dir / "valid_embeddings.pt")
     X_test, y_test, test_ids = load_embeddings(embeddings_dir / "test_embeddings.pt")
 
-    logger.info("--- Scaling Features ---")
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_val = scaler.transform(X_val)
-    X_test = scaler.transform(X_test)
+    logger.info("--- Creating DMatrix objects ---")
+    dtrain = xgb.DMatrix(X_train, label=y_train)
+    dval = xgb.DMatrix(X_val, label=y_val)
+    dtest = xgb.DMatrix(X_test, label=y_test)
 
-    # Save scaler for future inference
-    joblib.dump(scaler, scaler_save_path)
-
-    logger.info("--- Training Logistic Regression ---")
-    model = LogisticRegression(
-        solver="lbfgs", max_iter=2000, n_jobs=-1, random_state=42
+    logger.info("--- Starting XGBoost Training on GPU ---")
+    model = xgb.train(
+        XGB_PARAMS,
+        dtrain,
+        num_boost_round=NUM_BOOST_ROUND,
+        evals=[(dtrain, "train"), (dval, "val")],
+        early_stopping_rounds=EARLY_STOPPING_ROUNDS,
+        verbose_eval=VERBOSE_EVAL,
     )
-    model.fit(X_train, y_train)
-
-    logger.info("--- Saving Model ---")
-    joblib.dump(model, model_save_path)
-    logger.info("Model saved to %s", model_save_path)
+    logger.info("Best iteration: %d", model.best_iteration)
 
     logger.info("--- Evaluating ---")
-    test_prob = model.predict_proba(X_test)[:, 1]
+    test_prob = model.predict(dtest)
     test_pred = (test_prob >= 0.5).astype(int)
 
     # Compute, print, and save metrics/predictions using evaluation.py
     test_metrics = compute_metrics(y_test, test_prob)
-    print_metrics(test_metrics, name="TEST SET (Logistic Regression)")
+    print_metrics(test_metrics, name="TEST SET (XGBoost)")
 
     # Evaluate on validation set
-    val_prob = model.predict_proba(X_val)[:, 1]
+    val_prob = model.predict(dval)
     val_metrics = compute_metrics(y_val, val_prob)
     save_metrics(val_metrics_save_path, val_metrics)
 
@@ -89,12 +110,10 @@ def main():
     logger.info("Test predictions saved to: %s", predictions_save_path)
 
     # TensorBoard logging
-    tb_dir = Config.TENSORBOARD_LOG_DIR / "ehr" / "lr"
-    writer = SummaryWriter(log_dir=str(tb_dir))
     log_metrics_to_tensorboard(writer, val_metrics, global_step=0, prefix="val")
     log_metrics_to_tensorboard(writer, test_metrics, global_step=0, prefix="test")
     writer.close()
-    logger.info("TensorBoard logs → %s", tb_dir)
+    logger.info("TensorBoard logs → %s", tb_log_dir)
 
 
 if __name__ == "__main__":

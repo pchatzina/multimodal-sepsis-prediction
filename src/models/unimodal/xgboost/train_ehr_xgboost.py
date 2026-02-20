@@ -59,6 +59,7 @@ VERBOSE_EVAL = 50
 
 def main():
     Config.setup_logging()
+    Config.set_seed(42)
 
     embeddings_dir = Config.EHR_EMBEDDINGS_DIR
     output_dir = Config.EHR_XGBOOST_MODEL_DIR

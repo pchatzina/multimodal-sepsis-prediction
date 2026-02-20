@@ -1,10 +1,9 @@
 """
-Trains a Logistic Regression linear probe on the extracted EHR (MOTOR) embeddings.
+Trains a Logistic Regression linear probe on the extracted ECG embeddings.
 
 Usage:
-    python -m src.models.unimodal.logistic_regression.train_ehr_lr
+    python -m src.models.unimodal.logistic_regression.train_ecg_lr
 """
-
 
 import logging
 import joblib
@@ -13,12 +12,12 @@ from sklearn.preprocessing import StandardScaler
 from torch.utils.tensorboard import SummaryWriter
 from src.utils.config import Config
 from src.utils.evaluation import (
-    compute_metrics,
     load_embeddings,
-    log_metrics_to_tensorboard,
+    compute_metrics,
     print_metrics,
-    save_metrics,
     save_predictions,
+    save_metrics,
+    log_metrics_to_tensorboard,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,9 +25,9 @@ logger = logging.getLogger(__name__)
 # ==========================================
 # CONFIGURATION
 # ==========================================
-embeddings_dir = Config.EHR_EMBEDDINGS_DIR
-output_dir = Config.EHR_LR_MODEL_DIR
-results_dir = Config.RESULTS_DIR / "ehr" / "lr"
+embeddings_dir = Config.ECG_EMBEDDINGS_DIR
+output_dir = Config.ECG_LR_MODEL_DIR
+results_dir = Config.RESULTS_DIR / "ecg" / "lr"
 model_save_path = output_dir / "model.joblib"
 scaler_save_path = output_dir / "scaler.joblib"
 metrics_save_path = results_dir / "test_metrics.json"
@@ -39,6 +38,7 @@ val_metrics_save_path = results_dir / "val_metrics.json"
 # ==========================================
 # MAIN EXECUTION
 # ==========================================
+
 
 def main():
     Config.setup_logging()
@@ -89,7 +89,7 @@ def main():
     logger.info("Test predictions saved to: %s", predictions_save_path)
 
     # TensorBoard logging
-    tb_dir = Config.TENSORBOARD_LOG_DIR / "ehr" / "lr"
+    tb_dir = Config.TENSORBOARD_LOG_DIR / "ecg" / "lr"
     writer = SummaryWriter(log_dir=str(tb_dir))
     log_metrics_to_tensorboard(writer, val_metrics, global_step=0, prefix="val")
     log_metrics_to_tensorboard(writer, test_metrics, global_step=0, prefix="test")

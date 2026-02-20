@@ -11,8 +11,8 @@ All scripts produce the same `.pt` dict per split:
 ```python
 {
     "embeddings": Tensor[N, D],   # float32, one row per subject/sample
-    "labels":     List[str],      # "0" or "1"
-    "sample_ids": List[str],      # subject_id or study_id as string
+    "labels":     List[int],      # 0 or 1
+    "sample_ids": List[int],      # subject_id
 }
 ```
 
@@ -32,3 +32,27 @@ python -m src.scripts.extract_embeddings.extract_ehr_embeddings
   pretrained MOTOR model (`Config.MOTOR_MODEL_DIR`)
 - **Output:** `Config.EHR_EMBEDDINGS_DIR/{split}_embeddings.pt`
 - **Labels & splits:** Pulled from PostgreSQL (`mimiciv_ext.dataset_splits`)
+
+
+### ECG — `extract_ecg_embeddings.py`
+
+Runs the frozen ECG-FM model over preprocessed ECG `.mat` files.
+
+```bash
+python -m src.scripts.extract_embeddings.extract_ecg_embeddings
+```
+
+- **Input:** ECG manifests (`Config.ECG_MANIFEST_DIR`), pretrained ECG-FM model (`Config.ECG_PRETRAINED_MODEL_DIR`)
+- **Output:** `Config.ECG_EMBEDDINGS_DIR/{split}_embeddings.pt`
+
+### Inspect Embeddings — `inspect_embeddings.py`
+
+Utility script to inspect, summarize, or debug the generated embedding files for any modality.
+
+```bash
+python -m src.scripts.extract_embeddings.inspect_embeddings --file <path_to_embeddings.pt>
+```
+
+- **Input:** Path to a `.pt` embeddings file (EHR or ECG)
+- **Functionality:** Prints shape, label distribution, and sample IDs; can be extended for further diagnostics.
+

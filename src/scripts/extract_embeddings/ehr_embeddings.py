@@ -4,7 +4,7 @@ Loads labels and ontology, computes transformer features via femr,
 and saves per-split embedding .pt files to Config.EHR_EMBEDDINGS_DIR.
 
 Usage:
-    python -m src.scripts.extract_embeddings.extract_ehr_embeddings
+    python -m src.scripts.extract_embeddings.ehr_embeddings
 """
 
 import logging
@@ -85,27 +85,32 @@ def main():
         if n_skipped > 0:
             logger.warning(
                 "Split '%s': %d / %d subjects missing from extracted features",
-                db_split, n_skipped, len(all_sids),
+                db_split,
+                n_skipped,
+                len(all_sids),
             )
 
         indices = [sid_to_idx[s] for s in split_sids]
         embeddings = torch.from_numpy(feature_array[indices].astype(np.float32))
 
         label_lookup = split_df.set_index("subject_id")["sepsis_label"]
-        labels = [str(int(label_lookup[s])) for s in split_sids]
+        labels = [int(label_lookup[s]) for s in split_sids]
 
         out_path = output_dir / f"{file_split}_embeddings.pt"
         torch.save(
             {
                 "embeddings": embeddings,
                 "labels": labels,
-                "sample_ids": [str(s) for s in split_sids],
+                "sample_ids": [int(s) for s in split_sids],
             },
             out_path,
         )
         logger.info(
             "Saved %s: %d embeddings, dim=%d → %s",
-            file_split, embeddings.shape[0], embeddings.shape[1], out_path,
+            file_split,
+            embeddings.shape[0],
+            embeddings.shape[1],
+            out_path,
         )
 
 

@@ -142,6 +142,9 @@ class TestEHRXGBoostResults(_BaseResults):
 
 class TestEHRMLPResults(_BaseResults):
     RESULTS_DIR = Config.RESULTS_DIR / "ehr" / "mlp"
+    TEST_METRICS = "test_metrics_mlp.json"
+    VAL_METRICS = "val_metrics_mlp.json"
+    TEST_PREDS = "test_predictions_mlp.csv"
 
 
 # ==========================================

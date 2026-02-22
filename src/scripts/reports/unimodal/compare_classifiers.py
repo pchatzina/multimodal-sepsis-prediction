@@ -41,22 +41,22 @@ MODALITY_CLASSIFIERS = {
         (
             "MLP",
             Config.RESULTS_DIR / "ehr" / "mlp",
-            "test_metrics.json",
-            "val_metrics.json",
+            "test_metrics_mlp.json",
+            "val_metrics_mlp.json",
         ),
     ],
     "ecg": [
         (
             "LR",
             Config.RESULTS_DIR / "ecg" / "lr",
-            "test_metrics_lr.json",
-            "val_metrics_lr.json",
+            "test_metrics.json",
+            "val_metrics.json",
         ),
         (
             "XGBoost",
             Config.RESULTS_DIR / "ecg" / "xgboost",
-            "test_metrics_xgb.json",
-            "val_metrics_xgb.json",
+            "test_metrics.json",
+            "val_metrics.json",
         ),
         (
             "MLP",

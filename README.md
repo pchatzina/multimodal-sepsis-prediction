@@ -51,7 +51,7 @@ Rename .env.example to .env. and fill in your Database credentials and PhysioNet
 ### Data Acquisition & DB Setup
 The complete pipeline for downloading raw files, building the database schemas, and creating the patient cohort is detailed in the scripts directory.
 
-👉 **[Go to Data Setup Guide](scripts/README.md)**
+👉 **[Go to Data Setup Guide](scripts/)**
 
 
 ## 🧩 Pipeline Overview
@@ -62,7 +62,7 @@ The complete pipeline for downloading raw files, building the database schemas, 
 
 2. **Embeddings Extraction**
 	- [EHR Embeddings](src/scripts/extract_embeddings/): Generate patient-level embeddings using the pretrained MOTOR foundation model.
-	  - _Requires MOTOR foundation model pretraining. See [src/models/foundation/ehr/README.md](src/models/foundation/ehr/README.md) for instructions._
+	  - _Requires MOTOR foundation model pretraining. See [src/models/foundation/ehr/README.md](src/models/foundation/ehr/) for instructions._
 	- [ECG Embeddings](src/scripts/extract_embeddings/): Generate patient-level ECG embeddings using the frozen ECG-FM model. See subfolder for details.
 
 3. **Unimodal Classifiers**
@@ -81,7 +81,7 @@ After completing each pipeline stage, you can validate outputs and data integrit
 pytest tests/ -v
 ```
 
-See [tests/README.md](tests/README.md) for details on individual test files and their requirements.
+See [tests/README.md](tests/) for details on individual test files and their requirements.
 
 ---
 

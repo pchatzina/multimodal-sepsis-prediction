@@ -8,10 +8,13 @@ scripts inside each:
 src/models/unimodal/
   logistic_regression/      # Logistic Regression (linear probe)
     train_ehr_lr.py
+    train_ecg_lr.py
   xgboost/                  # XGBoost (gradient-boosted trees)
     train_ehr_xgboost.py
-  mlp/                      # MLP (two-hidden-layer feed-forward network)
-    train_ehr_mlp.py
+    train_ecg_xgboost.py
+  mlp/                      # MLP (dynamic, Optuna-tuned hyperparameters)
+    tune_mlp.py              # Optuna hyperparameter tuning
+    train_unimodal_mlp.py    # Unified MLP training (uses Optuna results)
 ```
 
 ## Pipeline
@@ -31,10 +34,14 @@ valid_embeddings.pt
 test_embeddings.pt
 ```
 
+
 Generate them with:
 ```bash
 # EHR (MOTOR)
-python -m src.scripts.extract_embeddings.extract_ehr_embeddings
+python -m src.scripts.extract_embeddings.ehr_embeddings
+
+# ECG (ECG-FM)
+python -m src.scripts.extract_embeddings.ecg_embeddings
 ```
 
 ## Classifier Details
@@ -47,35 +54,52 @@ Features are standardised with `StandardScaler` (fit on train only).
 Gradient-boosted trees with GPU acceleration (`device=cuda`).
 Uses early stopping on validation AUROC.
 
+
 ### MLP (`mlp/`)
-Two-hidden-layer feed-forward network (256 → 64 → 1) with BatchNorm,
-dropout, and early stopping. Trained with PyTorch + `BCEWithLogitsLoss`.
+Dynamic Multilayer Perceptron (MLP) with architecture and training hyperparameters selected via Optuna tuning. Supports input normalization, BatchNorm/LayerNorm, ReLU/GELU activations, dropout, and early stopping. Trained with PyTorch + `BCEWithLogitsLoss`.
+
+**Workflow:**
+- Run `tune_mlp.py` to search for optimal hyperparameters for each modality.
+- Run `train_unimodal_mlp.py` to train the MLP using the tuned parameters.
 
 
 ## Running
 
-All scripts must be run as modules from the project root:
+
+All scripts must be run as modules from the project root. Replace `ehr` with `ecg` in the script name to run for the ECG modality.
 
 ```bash
+
 # EHR classifiers
 python -m src.models.unimodal.logistic_regression.train_ehr_lr
 python -m src.models.unimodal.xgboost.train_ehr_xgboost
-python -m src.models.unimodal.mlp.train_ehr_mlp
+# MLP (Optuna-tuned)
+python -m src.models.unimodal.mlp.tune_mlp --modality ehr --n_trials 50
+python -m src.models.unimodal.mlp.train_unimodal_mlp --modality ehr
+
+# ECG classifiers
+python -m src.models.unimodal.logistic_regression.train_ecg_lr
+python -m src.models.unimodal.xgboost.train_ecg_xgboost
+# MLP (Optuna-tuned)
+python -m src.models.unimodal.mlp.tune_mlp --modality ecg --n_trials 50
+python -m src.models.unimodal.mlp.train_unimodal_mlp --modality ecg
 ```
+
 
 ### Batch Running: `run_classifiers.py`
 
-To run all available unimodal classifier scripts sequentially, or only those for a specific modality, use:
+To run all available unimodal classifier scripts sequentially, or only those for a specific modality or algorithm, use:
 
 ```bash
 # Run all classifiers
-python -m src.models.unimodal.run_classifiers
+python -m src.scripts.training.unimodal.run_classifiers
 
-# Run only classifiers for a specific modality (e.g., 'ehr' or 'ecg')
-python -m src.models.unimodal.run_classifiers --modality ehr
+# Run only classifiers for a specific modality (e.g., 'ehr' or 'ecg') or algorithm ('lr', 'xgboost', 'mlp')
+python -m src.scripts.training.unimodal.run_classifiers --modality ehr
+python -m src.scripts.training.unimodal.run_classifiers --algorithm mlp
 ```
 
-This script will automatically discover and execute all `train_*.py` scripts in each modality subfolder.
+This script will automatically discover and execute all `train_*.py` scripts.
 
 ## Metrics
 

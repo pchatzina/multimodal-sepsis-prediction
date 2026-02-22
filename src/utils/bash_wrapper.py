@@ -1,8 +1,9 @@
 """
 Bash Wrapper for MIMIC-IV Data Processing.
 
-Provides CLI commands to run export and ETL bash scripts with the correct
-environment variables sourced from the project Config.
+Provides CLI commands to run export and ETL bash scripts, as well as
+hyperparameter tuning, with the correct environment variables sourced
+from the project Config.
 """
 
 import argparse
@@ -34,17 +35,7 @@ def run_script(
     script_args: list[str] | None = None,
     env_vars: dict[str, str] | None = None,
 ) -> None:
-    """Run a bash script with specific environment variables.
-
-    Args:
-        script_path: Absolute path to the bash script.
-        script_args: Optional positional arguments passed to the script.
-        env_vars: Optional environment variable overrides.
-
-    Raises:
-        SystemExit: If the script exits with a non-zero status.
-        FileNotFoundError: If the script does not exist.
-    """
+    """Run a bash script with specific environment variables."""
     script = Path(script_path)
     if not script.is_file():
         logger.error("Script not found: %s", script)
@@ -89,11 +80,7 @@ def export_pretraining() -> None:
 
 
 def run_pipeline(dataset: str) -> None:
-    """Run the full MEDS ETL pipeline for the specified dataset.
-
-    Args:
-        dataset: One of ``"pretraining"`` or ``"cohort"``.
-    """
+    """Run the full MEDS ETL pipeline for the specified dataset."""
     dataset_config = {
         "pretraining": (
             Config.RAW_EHR_PRETRAINING_DIR,
@@ -121,12 +108,42 @@ def run_pipeline(dataset: str) -> None:
     )
 
 
+def tune_mlp(modality: str, n_trials: int) -> None:
+    """Run Optuna hyperparameter tuning for MLPs."""
+    supported_modalities = ["ehr", "ecg"]
+    modalities_to_run = supported_modalities if modality == "all" else [modality]
+
+    for mod in modalities_to_run:
+        logger.info("=" * 50)
+        logger.info(f"  STARTING TUNING FOR: {mod.upper()}")
+        logger.info("=" * 50)
+
+        cmd = [
+            "python",
+            "-m",
+            "src.models.unimodal.mlp.tune_mlp",
+            "--modality",
+            mod,
+            "--n_trials",
+            str(n_trials),
+        ]
+
+        try:
+            subprocess.run(cmd, check=True)
+            logger.info(f"Successfully finished tuning MLP for {mod.upper()}.\n")
+        except subprocess.CalledProcessError as e:
+            logger.error(
+                f"Error tuning MLP for {mod.upper()}. Exit code: {e.returncode}"
+            )
+            sys.exit(e.returncode)
+
+
 def main() -> None:
-    """CLI entry point for MIMIC-IV bash script wrapper."""
+    """CLI entry point for Data Processing and Model Tuning."""
     Config.setup_logging()
 
     parser = argparse.ArgumentParser(
-        description="Bash Wrapper for MIMIC-IV Data Processing",
+        description="CLI Wrapper for Project Pipelines",
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -147,6 +164,22 @@ def main() -> None:
         help="Name of the dataset to process",
     )
 
+    # Command: tune-mlp
+    tune_parser = subparsers.add_parser("tune-mlp", help="Run Optuna tuning for MLPs")
+    tune_parser.add_argument(
+        "--modality",
+        type=str,
+        default="all",
+        choices=["all", "ehr", "ecg"],
+        help="Specific modality to tune, or 'all' (default: all)",
+    )
+    tune_parser.add_argument(
+        "--n_trials",
+        type=int,
+        default=50,
+        help="Number of Optuna trials per modality (default: 50)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "export-cohort":
@@ -155,6 +188,8 @@ def main() -> None:
         export_pretraining()
     elif args.command == "meds-pipeline":
         run_pipeline(args.dataset)
+    elif args.command == "tune-mlp":
+        tune_mlp(args.modality, args.n_trials)
     else:
         parser.print_help()
         sys.exit(1)

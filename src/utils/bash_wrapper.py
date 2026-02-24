@@ -110,7 +110,7 @@ def run_pipeline(dataset: str) -> None:
 
 def tune_mlp(modality: str, n_trials: int) -> None:
     """Run Optuna hyperparameter tuning for MLPs."""
-    supported_modalities = ["ehr", "ecg", "cxr_img"]
+    supported_modalities = ["ehr", "ecg", "cxr_img", "cxr_txt"]
     modalities_to_run = supported_modalities if modality == "all" else [modality]
 
     for mod in modalities_to_run:
@@ -170,7 +170,7 @@ def main() -> None:
         "--modality",
         type=str,
         default="all",
-        choices=["all", "ehr", "ecg", "cxr_img"],
+        choices=["all", "ehr", "ecg", "cxr_img", "cxr_txt"],
         help="Specific modality to tune, or 'all' (default: all)",
     )
     tune_parser.add_argument(

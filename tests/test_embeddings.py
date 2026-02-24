@@ -162,3 +162,14 @@ class TestCXRImgEmbeddings(_BaseEmbeddingTests):
     """CXR Image embedding validation."""
 
     EMBEDDINGS_DIR = Config.CXR_IMG_EMBEDDINGS_DIR
+
+
+# ==========================================
+# CXR REPORTS (TEXT) EMBEDDINGS
+# ==========================================
+
+
+class TestCXRTxtEmbeddings(_BaseEmbeddingTests):
+    """CXR Text (Reports) embedding validation."""
+
+    EMBEDDINGS_DIR = Config.CXR_TXT_EMBEDDINGS_DIR

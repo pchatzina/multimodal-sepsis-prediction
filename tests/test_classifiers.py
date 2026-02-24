@@ -219,3 +219,36 @@ class TestCXRImgMLPResults(_BaseResults):
     TEST_METRICS = "test_metrics_mlp.json"
     VAL_METRICS = "val_metrics_mlp.json"
     TEST_PREDS = "test_predictions_mlp.csv"
+
+
+# ==========================================
+# CXR REPORTS (TEXT) CLASSIFIERS
+# ==========================================
+
+
+class TestCXRTxtLRArtifacts(_BaseLRArtifacts):
+    MODEL_DIR = Config.CXR_TXT_LR_MODEL_DIR
+
+
+class TestCXRTxtXGBoostArtifacts(_BaseXGBoostArtifacts):
+    MODEL_DIR = Config.CXR_TXT_XGBOOST_MODEL_DIR
+
+
+class TestCXRTxtMLPArtifacts(_BaseMLPArtifacts):
+    MODEL_DIR = Config.CXR_TXT_MLP_MODEL_DIR
+    MODEL_FILENAME = "best_cxr_txt_mlp.pt"
+
+
+class TestCXRTxtLRResults(_BaseResults):
+    RESULTS_DIR = Config.RESULTS_DIR / "cxr_txt" / "lr"
+
+
+class TestCXRTxtXGBoostResults(_BaseResults):
+    RESULTS_DIR = Config.RESULTS_DIR / "cxr_txt" / "xgboost"
+
+
+class TestCXRTxtMLPResults(_BaseResults):
+    RESULTS_DIR = Config.RESULTS_DIR / "cxr_txt" / "mlp"
+    TEST_METRICS = "test_metrics_mlp.json"
+    VAL_METRICS = "val_metrics_mlp.json"
+    TEST_PREDS = "test_predictions_mlp.csv"

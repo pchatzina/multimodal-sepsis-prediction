@@ -85,6 +85,26 @@ MODALITY_CLASSIFIERS = {
             "val_metrics_mlp.json",
         ),
     ],
+    "cxr_txt": [
+        (
+            "LR",
+            Config.RESULTS_DIR / "cxr_txt" / "lr",
+            "test_metrics.json",
+            "val_metrics.json",
+        ),
+        (
+            "XGBoost",
+            Config.RESULTS_DIR / "cxr_txt" / "xgboost",
+            "test_metrics.json",
+            "val_metrics.json",
+        ),
+        (
+            "MLP",
+            Config.RESULTS_DIR / "cxr_txt" / "mlp",
+            "test_metrics_mlp.json",
+            "val_metrics_mlp.json",
+        ),
+    ],
 }
 
 # Metrics to display and their display names (in order).

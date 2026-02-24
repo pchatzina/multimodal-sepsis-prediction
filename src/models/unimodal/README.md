@@ -10,10 +10,12 @@ src/models/unimodal/
     train_ehr_lr.py
     train_ecg_lr.py
     train_cxr_img_lr.py
+    train_cxr_txt_lr.py
   xgboost/                  # XGBoost (gradient-boosted trees)
     train_ehr_xgboost.py
     train_ecg_xgboost.py
     train_cxr_img_xgboost.py
+    train_cxr_txt_xgboost.py
   mlp/                      # MLP (dynamic, Optuna-tuned hyperparameters)
     tune_mlp.py              # Optuna hyperparameter tuning
     train_unimodal_mlp.py    # Unified MLP training (uses Optuna results)
@@ -47,6 +49,8 @@ python -m src.scripts.extract_embeddings.ecg_embeddings
  
 # CXR images
 python -m src.scripts.extract_embeddings.cxr_img_embeddings
+# CXR reports
+python -m src.scripts.extract_embeddings.cxr_txt_embeddings
 ```
 
 ## Classifier Details
@@ -95,6 +99,13 @@ python -m src.models.unimodal.xgboost.train_cxr_img_xgboost
 # MLP (Optuna-tuned)
 python -m src.models.unimodal.mlp.tune_mlp --modality cxr_img --n_trials 50
 python -m src.models.unimodal.mlp.train_unimodal_mlp --modality cxr_img
+
+# CXR reports classifiers
+python -m src.models.unimodal.logistic_regression.train_cxr_txt_lr
+python -m src.models.unimodal.xgboost.train_cxr_txt_xgboost
+# MLP (Optuna-tuned)
+python -m src.models.unimodal.mlp.tune_mlp --modality cxr_txt --n_trials 50
+python -m src.models.unimodal.mlp.train_unimodal_mlp --modality cxr_txt
 ```
 
 
@@ -148,4 +159,4 @@ pytest tests/test_classifiers.py -v
 | EHR | MOTOR (`motor-t-base`) | ✅ Complete |
 | ECG | ECG-FM (`ecg-fm`) |  ✅ Complete |
 | CXR images | TBD | ✅ Complete |
-| CXR reports | TBD | 🔲 Planned |
+| CXR reports | TBD | ✅ Complete |

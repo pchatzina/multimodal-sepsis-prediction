@@ -51,9 +51,11 @@ def get_modality_paths(modality: str):
     elif modality == "cxr_img":
         data_dir = Config.CXR_IMG_EMBEDDINGS_DIR
         model_dir = Config.CXR_IMG_MLP_MODEL_DIR
+    elif modality == "cxr_txt":
+        data_dir = Config.CXR_TXT_EMBEDDINGS_DIR
+        model_dir = Config.CXR_TXT_MLP_MODEL_DIR
     else:
-        data_dir = Config.PROCESSED_DATA_DIR / modality / "embeddings"
-        model_dir = Config.MODELS_DATA_DIR / modality / "mlp"
+        raise ValueError(f"Unknown modality: {modality}")
 
     results_dir = base_results / "mlp"
     tb_dir = Config.TENSORBOARD_LOG_DIR / modality / "mlp"

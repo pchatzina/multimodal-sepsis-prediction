@@ -41,7 +41,7 @@ def get_modality_dir(modality: str) -> Path:
     elif modality == "cxr_img":
         return Config.CXR_IMG_EMBEDDINGS_DIR
     elif modality == "cxr_txt":
-        return Config.PROCESSED_DATA_DIR / "cxr_txt" / "embeddings"
+        return Config.CXR_TXT_EMBEDDINGS_DIR
     else:
         raise ValueError(f"Unknown modality: {modality}")
 
@@ -252,6 +252,21 @@ def main():
                 "activation": "GELU",
                 "use_dropout": True,
                 "dropout_rate": 0.3,
+                "hidden_dim_1": 256,
+                "hidden_dim_2": 64,
+            }
+        )
+    elif args.modality == "cxr_txt":
+        study.enqueue_trial(
+            {
+                "batch_size": 128,
+                "lr": 1e-4,
+                "weight_decay": 1e-3,
+                "use_input_norm": True,
+                "norm_type": "layer",
+                "activation": "GELU",
+                "use_dropout": True,
+                "dropout_rate": 0.4,
                 "hidden_dim_1": 256,
                 "hidden_dim_2": 64,
             }

@@ -83,6 +83,8 @@ class Config:
     EHR_EMBEDDINGS_DIR = Path(_processed_env) / "ehr" / "embeddings"
     # CXR Images
     CXR_IMG_EMBEDDINGS_DIR = Path(_processed_env) / "cxr_img" / "embeddings"
+    # CXR Reports (Text)
+    CXR_TXT_EMBEDDINGS_DIR = Path(_processed_env) / "cxr_txt" / "embeddings"
 
     # ── MODEL ARTIFACT PATHS ────────────────────────────────────────────
     # ECG
@@ -104,6 +106,11 @@ class Config:
     CXR_IMG_XGBOOST_MODEL_DIR = Path(_models_env) / "cxr_img/xgboost"
     CXR_IMG_LR_MODEL_DIR = Path(_models_env) / "cxr_img/lr"
     CXR_IMG_MLP_MODEL_DIR = Path(_models_env) / "cxr_img/mlp"
+    # CXR Reports (Text)
+    CXR_TXT_PRETRAINED_MODEL_DIR = Path(_models_env) / "cxr_txt/pretrained"
+    CXR_TXT_XGBOOST_MODEL_DIR = Path(_models_env) / "cxr_txt/xgboost"
+    CXR_TXT_LR_MODEL_DIR = Path(_models_env) / "cxr_txt/lr"
+    CXR_TXT_MLP_MODEL_DIR = Path(_models_env) / "cxr_txt/mlp"
 
     # ── RESULTS & TENSORBOARD ───────────────────────────────────────────
     RESULTS_DIR = Path(_results_env)
@@ -134,6 +141,11 @@ class Config:
             cls.CXR_IMG_XGBOOST_MODEL_DIR,
             cls.CXR_IMG_LR_MODEL_DIR,
             cls.CXR_IMG_MLP_MODEL_DIR,
+            cls.CXR_TXT_EMBEDDINGS_DIR,
+            cls.CXR_TXT_PRETRAINED_MODEL_DIR,
+            cls.CXR_TXT_XGBOOST_MODEL_DIR,
+            cls.CXR_TXT_LR_MODEL_DIR,
+            cls.CXR_TXT_MLP_MODEL_DIR,
         ]
 
         for path in paths_to_create:

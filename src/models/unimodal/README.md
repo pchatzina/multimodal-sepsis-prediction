@@ -158,5 +158,5 @@ pytest tests/test_classifiers.py -v
 |----------|-----------------|--------|
 | EHR | MOTOR (`motor-t-base`) | ✅ Complete |
 | ECG | ECG-FM (`ecg-fm`) |  ✅ Complete |
-| CXR images | TBD | ✅ Complete |
-| CXR reports | TBD | ✅ Complete |
+| CXR images | (`densenet121-res224-all`) | ✅ Complete |
+| CXR reports | (`emilyalsentzer/Bio_ClinicalBERT`) | ✅ Complete |

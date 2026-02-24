@@ -151,3 +151,14 @@ class TestECGEmbeddings(_BaseEmbeddingTests):
     """ECG embedding validation."""
 
     EMBEDDINGS_DIR = Config.ECG_EMBEDDINGS_DIR
+
+
+# ==========================================
+# CXR IMAGE EMBEDDINGS
+# ==========================================
+
+
+class TestCXRImgEmbeddings(_BaseEmbeddingTests):
+    """CXR Image embedding validation."""
+
+    EMBEDDINGS_DIR = Config.CXR_IMG_EMBEDDINGS_DIR

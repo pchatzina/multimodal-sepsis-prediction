@@ -7,6 +7,7 @@ health of the latent space before training classifiers or performing late-fusion
 Usage:
     python -m src.scripts.extract_embeddings.inspect_embeddings --modality ehr
     python -m src.scripts.extract_embeddings.inspect_embeddings --modality ecg
+    python -m src.scripts.extract_embeddings.inspect_embeddings --modality cxr_img
 """
 
 import argparse
@@ -26,8 +27,7 @@ logger = logging.getLogger(__name__)
 MODALITY_DIRS = {
     "ehr": Config.EHR_EMBEDDINGS_DIR,
     "ecg": Config.ECG_EMBEDDINGS_DIR,
-    # You can uncomment and add these as we build the CXR pipelines!
-    # "cxr_img": Config.CXR_IMG_EMBEDDINGS_DIR,
+    "cxr_img": Config.CXR_IMG_EMBEDDINGS_DIR,
     # "cxr_txt": Config.CXR_TXT_EMBEDDINGS_DIR,
 }
 

@@ -48,6 +48,9 @@ def get_modality_paths(modality: str):
     elif modality == "ecg":
         data_dir = Config.ECG_EMBEDDINGS_DIR
         model_dir = Config.ECG_MLP_MODEL_DIR
+    elif modality == "cxr_img":
+        data_dir = Config.CXR_IMG_EMBEDDINGS_DIR
+        model_dir = Config.CXR_IMG_MLP_MODEL_DIR
     else:
         data_dir = Config.PROCESSED_DATA_DIR / modality / "embeddings"
         model_dir = Config.MODELS_DATA_DIR / modality / "mlp"
@@ -88,12 +91,22 @@ class DynamicModalityMLP(nn.Module):
         activation_name = config.get("activation", "GELU")
 
         activation_layer = nn.ReLU() if activation_name == "ReLU" else nn.GELU()
+
+        # ── DYNAMIC PROJECTION TO COMMON DIMENSION (768) ──
+        self.projection = None
+        current_dim = input_dim
+
+        if input_dim != 768:
+            self.projection = nn.Linear(input_dim, 768)
+            current_dim = 768
+
         layers = []
 
+        # Note: We now use current_dim instead of input_dim
         if use_input_norm:
-            layers.append(nn.LayerNorm(input_dim))
+            layers.append(nn.LayerNorm(current_dim))
 
-        layers.append(nn.Linear(input_dim, hidden_1))
+        layers.append(nn.Linear(current_dim, hidden_1))
         layers.append(
             nn.BatchNorm1d(hidden_1) if norm_type == "batch" else nn.LayerNorm(hidden_1)
         )
@@ -113,6 +126,8 @@ class DynamicModalityMLP(nn.Module):
         self.network = nn.Sequential(*layers)
 
     def forward(self, x):
+        if self.projection is not None:
+            x = self.projection(x)
         return self.network(x)
 
 

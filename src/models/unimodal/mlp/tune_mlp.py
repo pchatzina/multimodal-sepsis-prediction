@@ -39,7 +39,7 @@ def get_modality_dir(modality: str) -> Path:
     elif modality == "ecg":
         return Config.ECG_EMBEDDINGS_DIR
     elif modality == "cxr_img":
-        return Config.PROCESSED_DATA_DIR / "cxr_img" / "embeddings"
+        return Config.CXR_IMG_EMBEDDINGS_DIR
     elif modality == "cxr_txt":
         return Config.PROCESSED_DATA_DIR / "cxr_txt" / "embeddings"
     else:
@@ -67,12 +67,22 @@ class TunableMLP(nn.Module):
         hidden_dim_2 = trial.suggest_categorical("hidden_dim_2", [32, 64, 128])
 
         activation_layer = nn.ReLU() if activation_name == "ReLU" else nn.GELU()
+
+        # ── DYNAMIC PROJECTION TO COMMON DIMENSION (768) ──
+        self.projection = None
+        current_dim = input_dim
+
+        if input_dim != 768:
+            self.projection = nn.Linear(input_dim, 768)
+            current_dim = 768
+
         layers = []
 
+        # Note: We now use current_dim instead of input_dim
         if use_input_norm:
-            layers.append(nn.LayerNorm(input_dim))
+            layers.append(nn.LayerNorm(current_dim))
 
-        layers.append(nn.Linear(input_dim, hidden_dim_1))
+        layers.append(nn.Linear(current_dim, hidden_dim_1))
         layers.append(
             nn.BatchNorm1d(hidden_dim_1)
             if norm_type == "batch"
@@ -96,6 +106,8 @@ class TunableMLP(nn.Module):
         self.network = nn.Sequential(*layers)
 
     def forward(self, x):
+        if self.projection is not None:
+            x = self.projection(x)
         return self.network(x)
 
 

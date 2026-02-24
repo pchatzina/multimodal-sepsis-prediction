@@ -64,6 +64,7 @@ The complete pipeline for downloading raw files, building the database schemas, 
 	- [EHR Embeddings](src/scripts/extract_embeddings/): Generate patient-level embeddings using the pretrained MOTOR foundation model.
 	  - _Requires MOTOR foundation model pretraining. See [src/models/foundation/ehr/README.md](src/models/foundation/ehr/) for instructions._
 	- [ECG Embeddings](src/scripts/extract_embeddings/): Generate patient-level ECG embeddings using the frozen ECG-FM model. See subfolder for details.
+	- [CXR Image Embeddings](src/scripts/extract_embeddings/): Generate patient-level CXR image embeddings using the planned/frozen CXR foundation model. See subfolder for details.
 
 3. **Unimodal Classifiers**
 	- [Run Classifiers](src/models/unimodal/): Train and evaluate unimodal models (LR, XGBoost, MLP) on EHR embeddings.
@@ -98,9 +99,7 @@ This project relies on the MIMIC-IV dataset, which is a restricted-access resour
 ## 🚧 Status
 **Current Status:**
 - Data acquisition: complete
-- EHR and ECG preprocessing: complete
-- EHR and ECG embeddings extraction: complete
-- Unimodal classifiers (EHR and ECG, all types): complete
+- EHR, ECG, CXR image preprocessing: complete
+- EHR, ECG, CXR image embeddings extraction: complete
+- Unimodal classifiers (EHR, ECG, CXR image): complete
 - Testing for all the above: complete
-
-CXR and fusion pipelines: not started.

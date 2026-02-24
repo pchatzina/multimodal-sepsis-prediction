@@ -1,5 +1,5 @@
 """
-Trains an XGBoost classifier on the extracted ECG embeddings.
+Trains an XGBoost classifier on the extracted CXR Image embeddings.
 
 Features:
 - GPU-accelerated training with early stopping.
@@ -7,12 +7,13 @@ Features:
 - Centralized metric computation using `src.utils.evaluation`.
 
 Usage:
-    python -m src.models.unimodal.xgboost.train_ecg_xgboost
+    python -m src.models.unimodal.xgboost.train_cxr_img_xgboost
 """
 
 import logging
 import xgboost as xgb
 from torch.utils.tensorboard import SummaryWriter
+
 from src.utils.config import Config
 from src.utils.evaluation import (
     load_embeddings,
@@ -28,14 +29,14 @@ logger = logging.getLogger(__name__)
 # ==========================================
 # CONFIGURATION
 # ==========================================
-embeddings_dir = Config.ECG_EMBEDDINGS_DIR
-output_dir = Config.ECG_XGBOOST_MODEL_DIR
-results_dir = Config.RESULTS_DIR / "ecg" / "xgboost"
+embeddings_dir = Config.CXR_IMG_EMBEDDINGS_DIR
+output_dir = Config.CXR_IMG_XGBOOST_MODEL_DIR
+results_dir = Config.RESULTS_DIR / "cxr_img" / "xgboost"
 model_save_path = output_dir / "model.json"
 metrics_save_path = results_dir / "test_metrics.json"
 predictions_save_path = results_dir / "test_predictions.csv"
 val_metrics_save_path = results_dir / "val_metrics.json"
-tb_log_dir = Config.TENSORBOARD_LOG_DIR / "ecg" / "xgboost"
+tb_log_dir = Config.TENSORBOARD_LOG_DIR / "cxr_img" / "xgboost"
 
 # XGBoost Hyperparameters
 XGB_PARAMS = {
@@ -92,17 +93,17 @@ def main():
     )
     logger.info("Best iteration: %d", model.best_iteration)
 
+    logger.info("--- Saving Model ---")
+    model.save_model(model_save_path)
+    logger.info("Model saved to %s", model_save_path)
+
     logger.info("--- Evaluating ---")
     test_prob = model.predict(dtest)
     test_pred = (test_prob >= 0.5).astype(int)
 
     # Compute, print, and save metrics/predictions using evaluation.py
     test_metrics = compute_metrics(y_test, test_prob)
-    print_metrics(test_metrics, name="TEST SET (XGBoost)")
-
-    logger.info("--- Saving Model ---")
-    model.save_model(model_save_path)
-    logger.info("Model saved to %s", model_save_path)
+    print_metrics(test_metrics, name="CXR IMG TEST SET (XGBoost)")
 
     # Evaluate on validation set
     val_prob = model.predict(dval)

@@ -160,7 +160,6 @@ class TestECGLRArtifacts(_BaseLRArtifacts):
 
 class TestECGXGBoostArtifacts(_BaseXGBoostArtifacts):
     MODEL_DIR = Config.ECG_XGBOOST_MODEL_DIR
-    MODEL_FILENAME = "best_ecg_xgboost.json"
 
 
 class TestECGMLPArtifacts(_BaseMLPArtifacts):
@@ -184,6 +183,39 @@ class TestECGXGBoostResults(_BaseResults):
 
 class TestECGMLPResults(_BaseResults):
     RESULTS_DIR = Config.RESULTS_DIR / "ecg" / "mlp"
+    TEST_METRICS = "test_metrics_mlp.json"
+    VAL_METRICS = "val_metrics_mlp.json"
+    TEST_PREDS = "test_predictions_mlp.csv"
+
+
+# ==========================================
+# CXR IMAGE CLASSIFIERS
+# ==========================================
+
+
+class TestCXRImgLRArtifacts(_BaseLRArtifacts):
+    MODEL_DIR = Config.CXR_IMG_LR_MODEL_DIR
+
+
+class TestCXRImgXGBoostArtifacts(_BaseXGBoostArtifacts):
+    MODEL_DIR = Config.CXR_IMG_XGBOOST_MODEL_DIR
+
+
+class TestCXRImgMLPArtifacts(_BaseMLPArtifacts):
+    MODEL_DIR = Config.CXR_IMG_MLP_MODEL_DIR
+    MODEL_FILENAME = "best_cxr_img_mlp.pt"
+
+
+class TestCXRImgLRResults(_BaseResults):
+    RESULTS_DIR = Config.RESULTS_DIR / "cxr_img" / "lr"
+
+
+class TestCXRImgXGBoostResults(_BaseResults):
+    RESULTS_DIR = Config.RESULTS_DIR / "cxr_img" / "xgboost"
+
+
+class TestCXRImgMLPResults(_BaseResults):
+    RESULTS_DIR = Config.RESULTS_DIR / "cxr_img" / "mlp"
     TEST_METRICS = "test_metrics_mlp.json"
     VAL_METRICS = "val_metrics_mlp.json"
     TEST_PREDS = "test_predictions_mlp.csv"

@@ -103,4 +103,5 @@ This project relies on the MIMIC-IV dataset, which is a restricted-access resour
 - EHR, ECG preprocessing: complete
 - EHR, ECG, CXR (image & text) embeddings extraction: complete
 - Unimodal classifiers for EHR, ECG, CXR (image & text): complete
+- Fusion pipeline (late-fusion model training, tuning, and reporting): complete
 - Testing for all the above: complete

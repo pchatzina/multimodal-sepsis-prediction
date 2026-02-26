@@ -16,6 +16,7 @@ import argparse
 import json
 import logging
 from pathlib import Path
+import random
 
 import numpy as np
 import optuna
@@ -40,6 +41,12 @@ logger = logging.getLogger(__name__)
 EPOCHS = 50
 PATIENCE = 10
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 
 def evaluate_model(
@@ -96,13 +103,18 @@ def objective(
         "syn_hidden_2": trial.suggest_categorical("syn_hidden_2", [32, 64, 128]),
     }
 
+    g = torch.Generator()
+    g.manual_seed(42)
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=config["batch_size"],
         shuffle=True,
         num_workers=8,
         pin_memory=True,
-        persistent_workers=True,
+        persistent_workers=False,
+        worker_init_fn=seed_worker,
+        generator=g,
     )
     val_loader = DataLoader(
         val_dataset,
@@ -110,7 +122,9 @@ def objective(
         shuffle=False,
         num_workers=8,
         pin_memory=True,
-        persistent_workers=True,
+        persistent_workers=False,
+        worker_init_fn=seed_worker,
+        generator=g,
     )
 
     # 2. Initialize Model
@@ -227,7 +241,8 @@ def main():
     train_dataset = MultimodalSepsisDataset(split="train")
     val_dataset = MultimodalSepsisDataset(split="valid")
 
-    study = optuna.create_study(direction="maximize")
+    sampler = optuna.samplers.TPESampler(seed=42)
+    study = optuna.create_study(direction="maximize", sampler=sampler)
 
     # --- INJECT BASELINE ---
     study.enqueue_trial(

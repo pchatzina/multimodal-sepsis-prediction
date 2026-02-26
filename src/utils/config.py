@@ -111,6 +111,8 @@ class Config:
     CXR_TXT_XGBOOST_MODEL_DIR = Path(_models_env) / "cxr_txt/xgboost"
     CXR_TXT_LR_MODEL_DIR = Path(_models_env) / "cxr_txt/lr"
     CXR_TXT_MLP_MODEL_DIR = Path(_models_env) / "cxr_txt/mlp"
+    # Fusion Models
+    FUSION_MODEL_DIR = Path(_models_env) / "fusion"
 
     # ── RESULTS & TENSORBOARD ───────────────────────────────────────────
     RESULTS_DIR = Path(_results_env)
@@ -146,6 +148,7 @@ class Config:
             cls.CXR_TXT_XGBOOST_MODEL_DIR,
             cls.CXR_TXT_LR_MODEL_DIR,
             cls.CXR_TXT_MLP_MODEL_DIR,
+            cls.FUSION_MODEL_DIR,
         ]
 
         for path in paths_to_create:

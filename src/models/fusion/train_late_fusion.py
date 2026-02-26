@@ -15,6 +15,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+import random
 
 import numpy as np
 import torch
@@ -41,10 +42,16 @@ PATIENCE = 15
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
 def get_fusion_paths(is_pretrained: bool = False, ehr_dropout_rate: float = 0.0):
     """Defines and creates directories for fusion model artifacts, separating the 4 experiment types."""
     base_results = Config.RESULTS_DIR / "fusion"
-    model_dir = Config.PROJECT_ROOT / "models" / "fusion"
+    model_dir = Config.FUSION_MODEL_DIR
 
     # 1. Build a descriptive suffix for the experiment
     mode_str = "pretrained" if is_pretrained else "scratch"
@@ -254,6 +261,10 @@ def main():
     # 3. Initialize DataLoaders
     logger.info("--- Initializing DataLoaders ---")
     # Apply EHR dropout ONLY to the training set
+
+    g = torch.Generator()
+    g.manual_seed(42)
+
     train_loader = DataLoader(
         MultimodalSepsisDataset("train", ehr_dropout_rate=args.ehr_dropout_rate),
         batch_size=batch_size,
@@ -261,6 +272,8 @@ def main():
         num_workers=8,
         pin_memory=True,
         persistent_workers=True,
+        worker_init_fn=seed_worker,
+        generator=g,
     )
     val_loader = DataLoader(
         MultimodalSepsisDataset("valid", ehr_dropout_rate=0.0),
@@ -269,6 +282,8 @@ def main():
         num_workers=8,
         pin_memory=True,
         persistent_workers=True,
+        worker_init_fn=seed_worker,
+        generator=g,
     )
     test_loader = DataLoader(
         MultimodalSepsisDataset("test", ehr_dropout_rate=0.0),
@@ -277,6 +292,8 @@ def main():
         num_workers=8,
         pin_memory=True,
         persistent_workers=True,
+        worker_init_fn=seed_worker,
+        generator=g,
     )
 
     # 4. Initialize Fusion Model

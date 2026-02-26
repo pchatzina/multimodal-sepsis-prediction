@@ -57,7 +57,7 @@ def test_fusion_tuning_files(mode):
 # ==========================================
 @pytest.mark.parametrize("variant", VARIANTS)
 def test_fusion_model_artifacts(variant):
-    model_dir = Config.PROJECT_ROOT / "models" / "fusion"
+    model_dir = Config.FUSION_MODEL_DIR
     if not model_dir.exists():
         pytest.skip("Fusion model directory not found.")
 

@@ -143,6 +143,7 @@ class LateFusionSepsisModel(nn.Module):
 
         z_dict = {}
         p_dict = {}
+        logit_dict = {}
 
         # --- A & B: Projection and Unimodal Prediction ---
         for mod in self.modalities:
@@ -158,6 +159,7 @@ class LateFusionSepsisModel(nn.Module):
 
             # Unimodal prediction: p_i = sigmoid(MLP(z_i))
             logit_i = self.unimodal_mlps[mod](z_i)
+            logit_dict[mod] = logit_i
             p_dict[mod] = torch.sigmoid(logit_i)
 
         # --- C: Gating Network Mechanism ---
@@ -196,4 +198,5 @@ class LateFusionSepsisModel(nn.Module):
             "p_unimodal": p_dict,  # Dictionary of individual probabilities
             "weights": w,  # Useful for explainability
             "beta": beta,  # Useful for monitoring
+            "logits": {**logit_dict, "syn": logit_syn},
         }

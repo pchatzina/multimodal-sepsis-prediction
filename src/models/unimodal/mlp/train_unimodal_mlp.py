@@ -142,7 +142,17 @@ def create_dataloader(
     X_tensor = torch.tensor(X, dtype=torch.float32)
     y_tensor = torch.tensor(y, dtype=torch.float32).unsqueeze(1)
     dataset = TensorDataset(X_tensor, y_tensor)
-    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+
+    # Enforce strict reproducibility for shuffling
+    g = torch.Generator()
+    g.manual_seed(42)
+
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        generator=g if shuffle else None,
+    )
 
 
 def evaluate_model(

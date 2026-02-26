@@ -24,6 +24,8 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
+import matplotlib.pyplot as plt
+from sklearn.calibration import calibration_curve
 
 import numpy as np
 import pandas as pd
@@ -31,6 +33,7 @@ import torch
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
+    brier_score_loss,
     confusion_matrix,
     f1_score,
     precision_score,
@@ -98,6 +101,18 @@ def compute_metrics(
     specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
     sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0.0
 
+    n_bins = 10
+    bins = np.linspace(0.0, 1.0, n_bins + 1)
+    bin_indices = np.digitize(y_prob, bins) - 1
+    ece = 0.0
+    for i in range(n_bins):
+        bin_mask = bin_indices == i
+        if np.any(bin_mask):
+            bin_prob = np.mean(y_prob[bin_mask])
+            bin_true = np.mean(y_true[bin_mask])
+            bin_count = np.sum(bin_mask)
+            ece += (bin_count / len(y_prob)) * np.abs(bin_prob - bin_true)
+
     return {
         "auroc": float(roc_auc_score(y_true, y_prob)),
         "auprc": float(average_precision_score(y_true, y_prob)),
@@ -106,6 +121,8 @@ def compute_metrics(
         "precision": float(precision_score(y_true, y_pred, zero_division=0)),
         "recall": float(sensitivity),
         "specificity": float(specificity),
+        "brier_score": float(brier_score_loss(y_true, y_prob)),
+        "ece": float(ece),
         "tp": int(tp),
         "fp": int(fp),
         "tn": int(tn),
@@ -129,6 +146,8 @@ def print_metrics(metrics: Dict[str, float], name: str = "") -> None:
     print(f"  Precision:   {metrics['precision']:.4f}  (PPV)")
     print(f"  Recall:      {metrics['recall']:.4f}  (Sensitivity)")
     print(f"  Specificity: {metrics['specificity']:.4f}")
+    print(f"  Brier Score: {metrics['brier_score']:.4f}")
+    print(f"  ECE:         {metrics['ece']:.4f}")
     print(
         f"  Samples:     {metrics['n_samples']}  "
         f"(+{metrics['n_positive']} / -{metrics['n_negative']})"
@@ -203,3 +222,46 @@ def save_metrics(
     with open(path, "w") as f:
         json.dump(metrics, f, indent=2)
     logger.info("Metrics saved → %s", path)
+
+
+# ==========================================
+# PLOTTING
+# ==========================================
+
+
+def plot_reliability_diagrams(
+    models_preds: Dict[str, Tuple[np.ndarray, np.ndarray]],
+    save_path: Union[str, Path],
+    n_bins: int = 10,
+    title: str = "Reliability Diagram (Calibration Curve)",
+) -> None:
+    """Plots calibration curves for multiple models on a single graph.
+
+    Args:
+        models_preds: Dict mapping model_name -> (y_true, y_prob)
+        save_path: Filepath where the plot image will be saved.
+        n_bins: Number of bins for the calibration curve.
+        title: Title of the plot.
+    """
+    plt.figure(figsize=(10, 8))
+
+    # Plot the perfectly calibrated reference line
+    plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
+
+    # Plot each model's curve
+    for name, (y_true, y_prob) in models_preds.items():
+        prob_true, prob_pred = calibration_curve(y_true, y_prob, n_bins=n_bins)
+        plt.plot(prob_pred, prob_true, "s-", label=name, alpha=0.8, linewidth=2)
+
+    plt.xlabel("Mean predicted probability", fontsize=12)
+    plt.ylabel("Fraction of positives (True probability)", fontsize=12)
+    plt.title(title, fontsize=14)
+    plt.legend(loc="lower right", fontsize=10)
+    plt.grid(True, linestyle="--", alpha=0.6)
+
+    path = Path(save_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+    logger.info("Reliability diagram saved → %s", path)

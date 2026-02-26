@@ -32,6 +32,8 @@ dependencies:
   - azure-storage-common-cpp=12.11.0=h6d33aed_0
   - azure-storage-files-datalake-cpp=12.13.0=hf38f1be_1
   - backports.zstd=1.3.0=py310h69bd2ac_0
+  - blas=2.305=openblas
+  - blas-devel=3.11.0=5_h1ea3ea9_openblas
   - brotli-python=1.2.0=py310hba01987_1
   - bzip2=1.0.8=h5eee18b_6
   - c-ares=1.34.6=hb03c661_0
@@ -48,11 +50,13 @@ dependencies:
   - exceptiongroup=1.3.0=py310h06a4308_0
   - executing=2.2.1=py310h06a4308_0
   - expat=2.7.3=h7354ed3_4
+  - frozenlist=1.8.0=py310hbdd6827_0
   - fsspec=2025.10.0=pyhd8ed1ab_0
   - gflags=2.2.2=h5888daf_1005
   - glog=0.7.1=hbabe93e_0
   - h11=0.16.0=pyhcf101f3_1
   - h2=4.3.0=pyhcf101f3_0
+  - hf-xet=1.2.0=py310h8c4cd34_0
   - hpack=4.1.0=pyhd8ed1ab_0
   - httpcore=1.0.9=pyh29332c3_0
   - httpx=0.28.1=pyhd8ed1ab_0
@@ -90,12 +94,14 @@ dependencies:
   - libgcc=15.2.0=h69a1729_7
   - libgcc-ng=15.2.0=h166f726_7
   - libgfortran=15.2.0=h69a702a_16
+  - libgfortran-ng=15.2.0=h69a702a_16
   - libgfortran5=15.2.0=h68bc16d_16
   - libgomp=15.2.0=h4751f2c_7
   - libgoogle-cloud=2.39.0=hdb79228_0
   - libgoogle-cloud-storage=2.39.0=hdbdcf42_0
   - libgrpc=1.73.1=h3288cfb_1
   - liblapack=3.11.0=5_h47877c9_openblas
+  - liblapacke=3.11.0=5_h6ae95b6_openblas
   - libnghttp2=1.67.0=had1ee68_0
   - libnsl=2.0.0=h5eee18b_0
   - libopenblas=0.3.30=pthreads_h94d23a6_4
@@ -123,6 +129,7 @@ dependencies:
   - ncurses=6.5=h7934f7d_0
   - nest-asyncio=1.6.0=py310h06a4308_0
   - nlohmann_json=3.12.0=h54a6638_1
+  - openblas=0.3.30=pthreads_h6ec200e_4
   - openssl=3.6.1=h35e630c_1
   - orc=2.2.2=h19cb568_0
   - packaging=25.0=py310h06a4308_1
@@ -135,12 +142,12 @@ dependencies:
   - prometheus-cpp=1.3.0=ha5d0236_0
   - prompt-toolkit=3.0.52=py310h06a4308_1
   - prompt_toolkit=3.0.52=hd3eb1b0_1
+  - propcache=0.4.1=py310h47b2149_0
   - psutil=7.0.0=py310hee96239_1
   - pthread-stubs=0.3=h0ce48e5_1
   - ptyprocess=0.7.0=pyhd3eb1b0_3
   - pure_eval=0.2.3=py310h06a4308_0
   - py-xgboost=3.1.3=cuda129_pyhb96f994_0
-  - pyarrow-core=22.0.0=py310h923f568_2_cpu
   - pygments=2.19.2=py310h06a4308_0
   - pysocks=1.7.1=pyha55dd90_7
   - python=3.10.19=h6fa692b_0
@@ -159,6 +166,7 @@ dependencies:
   - s2n=1.6.2=he8a4886_1
   - safetensors=0.7.0=py310hdfeec95_0
   - scikit-learn=1.7.2=py310h228f341_0
+  - scipy=1.15.3=py310ha592af2_1
   - setuptools=80.9.0=py310h06a4308_0
   - six=1.17.0=py310h06a4308_0
   - snappy=1.2.2=h03e3b7b_1
@@ -191,6 +199,7 @@ dependencies:
       - accelerate==1.12.0
       - alembic==1.18.4
       - antlr4-python3-runtime==4.8
+      - captum==0.8.0
       - cffi==2.0.0
       - click==8.3.1
       - colorama==0.4.6
@@ -199,14 +208,12 @@ dependencies:
       - cycler==0.12.1
       - cython==3.2.4
       - einops==0.8.1
-      - fairseq-signals==1.0.0a0+571a124
+      - fairseq-signals==1.0.0a0+4e8278e
       - femr==0.2.4
       - filelock==3.20.1
       - fonttools==4.61.1
-      - frozenlist==1.8.0
       - greenlet==3.3.1
       - grpcio==1.76.0
-      - hf-xet==1.2.0
       - hydra-core==1.1.0
       - icecream==2.1.3
       - imageio==2.37.2
@@ -224,7 +231,6 @@ dependencies:
       - meds==0.3.3
       - meds-etl==0.3.6
       - meds-reader==0.1.14
-      - mmsp==0.1.0
       - mpmath==1.3.0
       - msgpack==1.1.2
       - networkx==3.4.2
@@ -254,7 +260,6 @@ dependencies:
       - polars==1.37.1
       - polars-runtime-32==1.37.1
       - portalocker==3.2.0
-      - propcache==0.4.1
       - protobuf==6.33.4
       - psycopg2-binary==2.9.11
       - pyarrow==23.0.0
@@ -267,7 +272,7 @@ dependencies:
       - sacrebleu==2.6.0
       - sacremoses==0.1.1
       - scikit-image==0.25.2
-      - scipy==1.15.3
+      - seaborn==0.13.2
       - soundfile==0.13.1
       - sqlalchemy==2.0.46
       - sympy==1.14.0
@@ -276,14 +281,14 @@ dependencies:
       - tensorboard-data-server==0.7.2
       - tensorboardx==2.6.4
       - tifffile==2025.5.10
-      - tokenizers==0.12.1
+      - tokenizers==0.19.1
       - tomli==2.4.0
       - torch==2.9.1
       - torch-hawk==0.0.8
       - torchvision==0.24.1
       - torchxrayvision==1.4.0
       - tqdm==4.67.1
-      - transformers==4.25.0
+      - transformers==4.41.2
       - triton==3.5.1
       - types-pytz==2025.2.0.20251108
       - types-requests==2.32.4.20260107

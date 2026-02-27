@@ -2,12 +2,15 @@
 Compare Late-Fusion Sepsis Prediction results and generate a Markdown report.
 
 Reads test and val metrics from the fusion results directory for the 4
-distinct experiment types (Option A/B x No Dropout/EHR Dropout), prints
-a formatted comparison table, and writes a Markdown file to
-`Config.REPORTS_DIR / "fusion"`.
+distinct experiment types, prints a formatted comparison table, and writes
+a Markdown file to `Config.REPORTS_DIR / "fusion"`.
 
 Usage:
-    python -m src.scripts.reports.fusion.compare_fusion
+    # OPTION 1: 4-Modality baseline comparison
+    python -m src.scripts.reports.fusion.compare_fusion --modalities ehr ecg img txt
+
+    # OPTION 2: 3-Modality champion comparison
+    python -m src.scripts.reports.fusion.compare_fusion --modalities ehr img txt
 """
 
 import argparse
@@ -26,31 +29,6 @@ logger = logging.getLogger(__name__)
 RESULTS_DIR = Config.RESULTS_DIR / "fusion"
 OUTPUT_DIR = Config.REPORTS_DIR / "fusion"
 
-# List of (Display Name, Test JSON Filename, Val JSON Filename)
-EXPERIMENTS = [
-    (
-        "Option A (No Dropout)",
-        "test_metrics_fusion_scratch_no_dropout.json",
-        "val_metrics_fusion_scratch_no_dropout.json",
-    ),
-    (
-        "Option A (EHR Dropout)",
-        "test_metrics_fusion_scratch_ehr_dropout.json",
-        "val_metrics_fusion_scratch_ehr_dropout.json",
-    ),
-    (
-        "Option B (No Dropout)",
-        "test_metrics_fusion_pretrained_no_dropout.json",
-        "val_metrics_fusion_pretrained_no_dropout.json",
-    ),
-    (
-        "Option B (EHR Dropout)",
-        "test_metrics_fusion_pretrained_ehr_dropout.json",
-        "val_metrics_fusion_pretrained_ehr_dropout.json",
-    ),
-]
-
-# Metrics to display and their display names (in order).
 DISPLAY_METRICS = [
     ("auroc", "AUROC"),
     ("auprc", "AUPRC"),
@@ -85,18 +63,30 @@ def find_best(values: list[float | None]) -> int | None:
     return max(valid, key=lambda x: x[1])[0]
 
 
-def build_report(experiments: list[tuple[str, str, str]]) -> str | None:
+def build_report(
+    experiments: list[tuple[str, str, str, str]], num_mods: int
+) -> str | None:
     """Build a Markdown report string comparing all valid experiments."""
     all_test = []
     all_val = []
     names = []
 
-    for name, test_fn, val_fn in experiments:
-        test_m = load_metrics(RESULTS_DIR, test_fn)
+    eval_base_dir = RESULTS_DIR / "evaluation" / f"{num_mods}mod_architecture"
+
+    for name, exp_folder_name, test_fn, val_fn in experiments:
+        # 1. Try loading calibrated test metrics from the evaluation phase
+        exp_eval_dir = eval_base_dir / exp_folder_name
+        test_m = load_metrics(exp_eval_dir, "metrics_calibrated.json")
+
+        # Fallback to uncalibrated raw test metrics from the training phase if evaluation hasn't run
+        if test_m is None:
+            test_m = load_metrics(RESULTS_DIR, test_fn)
+
+        # Validation metrics are saved in the root fusion dir during training
         val_m = load_metrics(RESULTS_DIR, val_fn)
 
         if test_m is None:
-            logger.warning(f"Skipping '{name}' — {test_fn} not found in {RESULTS_DIR}")
+            logger.warning(f"Skipping '{name}' — test metrics not found.")
             continue
 
         all_test.append(test_m)
@@ -111,7 +101,9 @@ def build_report(experiments: list[tuple[str, str, str]]) -> str | None:
     n_neg = all_test[0].get("n_negative", "?")
 
     lines = []
-    lines.append("# Late-Fusion Sepsis Model - Experiment Comparison\n")
+    lines.append(
+        f"# Late-Fusion Sepsis Model ({num_mods} Modalities) - Experiment Comparison\n"
+    )
     lines.append(
         f"**Test set:** N = {n_samples} (+{n_pos} / −{n_neg}), threshold = 0.5\n"
     )
@@ -138,8 +130,6 @@ def build_report(experiments: list[tuple[str, str, str]]) -> str | None:
     # --- Confusion matrix ---
     lines.append("")
     lines.append("### Confusion Matrix\n")
-    header = "| |" + "|".join(f" {n} " for n in names) + "|"
-    sep = "|---|" + "|".join(":---:" for _ in names) + "|"
     lines.append(header)
     lines.append(sep)
     for key in CONFUSION_KEYS:
@@ -150,8 +140,6 @@ def build_report(experiments: list[tuple[str, str, str]]) -> str | None:
     if any(v is not None for v in all_val):
         lines.append("")
         lines.append("### Generalisation Gap (Val → Test)\n")
-        header = "| Metric |" + "|".join(f" {n} " for n in names) + "|"
-        sep = "|---|" + "|".join(":---:" for _ in names) + "|"
         lines.append(header)
         lines.append(sep)
         for key, display_name in [("auroc", "AUROC"), ("auprc", "AUPRC")]:
@@ -178,10 +166,50 @@ def build_report(experiments: list[tuple[str, str, str]]) -> str | None:
 def main():
     Config.setup_logging()
     parser = argparse.ArgumentParser(description="Compare Late-Fusion experiments.")
-    parser.parse_args()
+    parser.add_argument(
+        "--modalities",
+        nargs="+",
+        default=["ehr", "ecg", "img", "txt"],
+        help="List of active modalities to report on.",
+    )
+    args = parser.parse_args()
+
+    num_mods = len(args.modalities)
+
+    # Reconstruct the suffixes based on how train_late_fusion.py saves them
+    ts_scratch = f"_{num_mods}mod_scratch"
+    ts_pre = f"_{num_mods}mod_pretrained"
+
+    # Tuple: (Display Name, eval_folder_name, train_test_json, train_val_json)
+    experiments = [
+        (
+            "Option A (No Dropout)",
+            "scratch_no_dropout",
+            f"test_metrics_fusion{ts_scratch}_no_dropout.json",
+            f"val_metrics_fusion{ts_scratch}_no_dropout.json",
+        ),
+        (
+            "Option A (EHR Dropout)",
+            "scratch_ehr_dropout",
+            f"test_metrics_fusion{ts_scratch}_ehr_dropout.json",
+            f"val_metrics_fusion{ts_scratch}_ehr_dropout.json",
+        ),
+        (
+            "Option B (No Dropout)",
+            "pretrained_no_dropout",
+            f"test_metrics_fusion{ts_pre}_no_dropout.json",
+            f"val_metrics_fusion{ts_pre}_no_dropout.json",
+        ),
+        (
+            "Option B (EHR Dropout)",
+            "pretrained_ehr_dropout",
+            f"test_metrics_fusion{ts_pre}_ehr_dropout.json",
+            f"val_metrics_fusion{ts_pre}_ehr_dropout.json",
+        ),
+    ]
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    report = build_report(EXPERIMENTS)
+    report = build_report(experiments, num_mods)
 
     if report is None:
         logger.error(f"No results found in {RESULTS_DIR} to generate a report.")
@@ -191,7 +219,7 @@ def main():
     print(report)
 
     # Write Markdown file
-    out_path = OUTPUT_DIR / "late_fusion_comparison.md"
+    out_path = OUTPUT_DIR / f"late_fusion_{num_mods}mod_comparison.md"
     out_path.write_text(report)
     logger.info(f"\nReport successfully written to -> {out_path}")
 

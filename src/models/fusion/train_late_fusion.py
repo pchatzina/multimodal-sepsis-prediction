@@ -4,10 +4,10 @@ Supports both Option A (Joint Training from scratch) and Option B (Fine-tuning p
 
 Usage:
     # Option A: Train from scratch
-    python -m src.models.fusion.train_late_fusion --lambda_weight 0.4
+    python -m src.models.fusion.train_late_fusion --lambda_weight 0.4 --modalities ehr img txt
 
     # Option B: Load pre-trained unimodal weights
-    python -m src.models.fusion.train_late_fusion --lambda_weight 0.4 --load_pretrained
+    python -m src.models.fusion.train_late_fusion --lambda_weight 0.4 --load_pretrained --modalities ehr img txt
 """
 
 import argparse
@@ -48,16 +48,18 @@ def seed_worker(worker_id):
     random.seed(worker_seed)
 
 
-def get_fusion_paths(is_pretrained: bool = False, ehr_dropout_rate: float = 0.0):
-    """Defines and creates directories for fusion model artifacts, separating the 4 experiment types."""
+def get_fusion_paths(
+    is_pretrained: bool = False, ehr_dropout_rate: float = 0.0, num_mods: int = 4
+):
+    """Defines and creates directories for fusion model artifacts."""
     base_results = Config.RESULTS_DIR / "fusion"
     model_dir = Config.FUSION_MODEL_DIR
 
-    # 1. Build a descriptive suffix for the experiment
+    # 1. Build a descriptive suffix (Added num_mods to prevent overwriting)
     mode_str = "pretrained" if is_pretrained else "scratch"
     dropout_str = "ehr_dropout" if ehr_dropout_rate > 0.0 else "no_dropout"
-    suffix = f"_{mode_str}_{dropout_str}"
-    tuning_suffix = "_pretrained" if is_pretrained else ""
+    suffix = f"_{num_mods}mod_{mode_str}_{dropout_str}"
+    tuning_suffix = f"_{num_mods}mod_pretrained" if is_pretrained else f"_{num_mods}mod"
 
     # 2. Define isolated paths for this specific run
     paths = {
@@ -66,13 +68,11 @@ def get_fusion_paths(is_pretrained: bool = False, ehr_dropout_rate: float = 0.0)
         "val_metrics_save_path": base_results / f"val_metrics_fusion{suffix}.json",
         "predictions_save_path": base_results / f"test_predictions_fusion{suffix}.csv",
         "tb_dir": Config.TENSORBOARD_LOG_DIR / f"fusion{suffix}",
-        # Note: We usually use the same tuning hyperparameters regardless of dropout evaluation
         "tuning_file": base_results
         / "tuning"
         / f"best_hyperparameters{tuning_suffix}.json",
     }
 
-    # 3. Ensure directories exist
     model_dir.mkdir(parents=True, exist_ok=True)
     base_results.mkdir(parents=True, exist_ok=True)
     paths["tb_dir"].mkdir(parents=True, exist_ok=True)
@@ -83,13 +83,12 @@ def get_fusion_paths(is_pretrained: bool = False, ehr_dropout_rate: float = 0.0)
 def load_pretrained_unimodal_weights(
     fusion_model: torch.nn.Module, device: torch.device
 ):
-    """
-    Loads pre-trained weights from the unimodal MLPs into the fusion model.
-    """
+    """Loads pre-trained weights from the unimodal MLPs into the fusion model."""
     logger.info("--- Loading Pre-trained Unimodal Weights (Option B) ---")
-    modalities = ["ehr", "ecg", "img", "txt"]
 
-    # Map modalities to their respective saved model directories
+    # Dynamically read the modalities from the model itself
+    modalities = fusion_model.modalities
+
     model_paths = {
         "ehr": Config.EHR_MLP_MODEL_DIR / "best_ehr_mlp.pt",
         "ecg": Config.ECG_MLP_MODEL_DIR / "best_ecg_mlp.pt",
@@ -101,16 +100,13 @@ def load_pretrained_unimodal_weights(
         path = model_paths[mod]
         if not path.exists():
             logger.warning(
-                f"Pre-trained weights not found for {mod} at {path}. Starting from scratch for this modality."
+                f"Pre-trained weights not found for {mod} at {path}. Starting from scratch."
             )
             continue
 
-        # Load the state dictionary from the unimodal model
         state_dict = torch.load(path, map_location=device, weights_only=True)
 
-        # --- 1. Load Projection Weights ---
         if "projection.weight" in state_dict:
-            # If the unimodal model had a projection, load it directly
             fusion_model.projectors[mod].weight.data = state_dict["projection.weight"]
             fusion_model.projectors[mod].bias.data = state_dict["projection.bias"]
             logger.info(f"  -> Loaded projection weights for {mod.upper()}.")
@@ -118,15 +114,12 @@ def load_pretrained_unimodal_weights(
             fusion_model.projectors[mod].in_features
             == fusion_model.projectors[mod].out_features
         ):
-            # If no projection existed (like EHR), initialize as an Identity Matrix
             torch.nn.init.eye_(fusion_model.projectors[mod].weight)
             torch.nn.init.zeros_(fusion_model.projectors[mod].bias)
             logger.info(
                 f"  -> Initialized identity projection for {mod.upper()} (no projection in unimodal)."
             )
 
-        # --- 2. Load MLP Network Weights ---
-        # Map 'network.X.weight' from DynamicModalityMLP to 'network.X.weight' in MLPBlock
         network_state_dict = {
             k.replace("network.", ""): v
             for k, v in state_dict.items()
@@ -134,7 +127,6 @@ def load_pretrained_unimodal_weights(
         }
 
         try:
-            # Strict=False allows us to skip layers that might not perfectly match if architectures differ slightly
             fusion_model.unimodal_mlps[mod].network.load_state_dict(
                 network_state_dict, strict=True
             )
@@ -147,8 +139,7 @@ def load_pretrained_unimodal_weights(
 
 def evaluate_model(
     model: torch.nn.Module, dataloader: DataLoader, lambda_weight: float
-) -> tuple[np.ndarray, np.ndarray, float]:
-    """Evaluates the fusion model and computes the composite loss."""
+) -> tuple:
     model.eval()
     total_loss = 0.0
     all_probs, all_targets = [], []
@@ -177,28 +168,16 @@ def main():
     Config.set_seed(42)
 
     parser = argparse.ArgumentParser(description="Train Late Fusion Model.")
-    parser.add_argument(
-        "--lambda_weight",
-        type=float,
-        default=0.4,
-        help="Weight for auxiliary unimodal loss",
-    )
-    parser.add_argument(
-        "--load_pretrained",
-        action="store_true",
-        help="Load pre-trained unimodal weights (Option B)",
-    )
-    parser.add_argument(
-        "--ehr_dropout_rate",
-        type=float,
-        default=0.0,
-        help="Probability of dropping EHR during training when other modalities are present",
-    )
+    parser.add_argument("--lambda_weight", type=float, default=0.4)
+    parser.add_argument("--load_pretrained", action="store_true")
+    parser.add_argument("--ehr_dropout_rate", type=float, default=0.0)
+    parser.add_argument("--modalities", nargs="+", default=["ehr", "ecg", "img", "txt"])
     args = parser.parse_args()
 
-    # Generate perfectly separated paths based on BOTH flags!
     paths = get_fusion_paths(
-        is_pretrained=args.load_pretrained, ehr_dropout_rate=args.ehr_dropout_rate
+        is_pretrained=args.load_pretrained,
+        ehr_dropout_rate=args.ehr_dropout_rate,
+        num_mods=len(args.modalities),
     )
 
     run_type = (
@@ -210,10 +189,9 @@ def main():
         else "NO Dropout"
     )
     logger.info(
-        f"=== Starting Training Pipeline for LATE FUSION - {run_type} | {dropout_type} ==="
+        f"=== Starting Training Pipeline for {len(args.modalities)}-MOD LATE FUSION - {run_type} | {dropout_type} ==="
     )
 
-    # 1. Load Fusion Tuning Configs
     if paths["tuning_file"].exists():
         with open(paths["tuning_file"], "r") as f:
             best_params = json.load(f)["params"]
@@ -233,13 +211,13 @@ def main():
             "dropout_rate": 0.1,
         }
 
-    # 2. Load Unimodal Configs (Crucial for Option B dynamic reconstruction)
     unimodal_configs = None
     if args.load_pretrained:
         unimodal_configs = {}
-        # Map our short names to your specific folder names
+        # Only load configs for ACTIVE modalities
         mod_map = {"ehr": "ehr", "ecg": "ecg", "img": "cxr_img", "txt": "cxr_txt"}
-        for mod, folder_name in mod_map.items():
+        for mod in args.modalities:
+            folder_name = mod_map[mod]
             json_path = (
                 Config.RESULTS_DIR
                 / folder_name
@@ -258,15 +236,15 @@ def main():
     batch_size = best_params.get("batch_size", 128)
     writer = SummaryWriter(log_dir=str(paths["tb_dir"]))
 
-    # 3. Initialize DataLoaders
-    logger.info("--- Initializing DataLoaders ---")
-    # Apply EHR dropout ONLY to the training set
-
     g = torch.Generator()
     g.manual_seed(42)
 
     train_loader = DataLoader(
-        MultimodalSepsisDataset("train", ehr_dropout_rate=args.ehr_dropout_rate),
+        MultimodalSepsisDataset(
+            "train",
+            ehr_dropout_rate=args.ehr_dropout_rate,
+            active_modalities=args.modalities,
+        ),
         batch_size=batch_size,
         shuffle=True,
         num_workers=8,
@@ -276,7 +254,9 @@ def main():
         generator=g,
     )
     val_loader = DataLoader(
-        MultimodalSepsisDataset("valid", ehr_dropout_rate=0.0),
+        MultimodalSepsisDataset(
+            "valid", ehr_dropout_rate=0.0, active_modalities=args.modalities
+        ),
         batch_size=batch_size,
         shuffle=False,
         num_workers=8,
@@ -286,7 +266,9 @@ def main():
         generator=g,
     )
     test_loader = DataLoader(
-        MultimodalSepsisDataset("test", ehr_dropout_rate=0.0),
+        MultimodalSepsisDataset(
+            "test", ehr_dropout_rate=0.0, active_modalities=args.modalities
+        ),
         batch_size=batch_size,
         shuffle=False,
         num_workers=8,
@@ -296,14 +278,14 @@ def main():
         generator=g,
     )
 
-    # 4. Initialize Fusion Model
-    logger.info(f"--- Initializing Fusion Model on {DEVICE} ---")
-    input_dims = {"ehr": 768, "ecg": 768, "img": 1024, "txt": 768}
+    base_input_dims = {"ehr": 768, "ecg": 768, "img": 1024, "txt": 768}
+    input_dims = {k: base_input_dims[k] for k in args.modalities}
     model = LateFusionSepsisModel(
         input_dims=input_dims,
         config=best_params,
-        unimodal_configs=unimodal_configs,  # Passes the dynamic configs we just loaded
+        unimodal_configs=unimodal_configs,
         common_dim=768,
+        active_modalities=args.modalities,
     ).to(DEVICE)
 
     if args.load_pretrained:
@@ -317,11 +299,9 @@ def main():
         weight_decay=best_params.get("weight_decay", 1e-5),
     )
 
-    logger.info("--- Starting Training ---")
     best_val_auroc = 0.0
     epochs_without_improvement = 0
 
-    # 5. Training Loop
     for epoch in range(1, NUM_EPOCHS + 1):
         model.train()
         train_loss = 0.0
@@ -333,8 +313,7 @@ def main():
 
             optimizer.zero_grad()
             outputs = model(embeddings, masks)
-
-            loss, main_loss, aux_loss = composite_sepsis_loss(
+            loss, _, _ = composite_sepsis_loss(
                 outputs["p_final"],
                 outputs["p_unimodal"],
                 masks,
@@ -348,34 +327,29 @@ def main():
 
         train_loss /= len(train_loader.dataset)
 
-        # Validation Step
         val_true, val_prob, val_loss = evaluate_model(
             model, val_loader, args.lambda_weight
         )
         val_metrics = compute_metrics(val_true, val_prob)
 
         logger.info(
-            f"Epoch {epoch:03d} | Train Loss: {train_loss:.4f} | "
-            f"Val Loss: {val_loss:.4f} | Val AUROC: {val_metrics['auroc']:.4f}"
+            f"Epoch {epoch:03d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val AUROC: {val_metrics['auroc']:.4f}"
         )
 
         writer.add_scalar("Loss/train", train_loss, epoch)
         writer.add_scalar("Loss/val", val_loss, epoch)
         log_metrics_to_tensorboard(writer, val_metrics, epoch, prefix="Val")
 
-        # Early Stopping Logic
         if val_metrics["auroc"] > best_val_auroc:
             best_val_auroc = val_metrics["auroc"]
             epochs_without_improvement = 0
             torch.save(model.state_dict(), paths["model_save_path"])
-            logger.info(f"  -> Best model saved! (AUROC: {best_val_auroc:.4f})")
         else:
             epochs_without_improvement += 1
             if epochs_without_improvement >= PATIENCE:
                 logger.warning(f"Early stopping triggered at epoch {epoch}")
                 break
 
-    # 6. Evaluation
     logger.info("--- Evaluating Best Model on Test Set ---")
     model.load_state_dict(torch.load(paths["model_save_path"]))
 
@@ -388,7 +362,6 @@ def main():
 
     test_true, test_prob, _ = evaluate_model(model, test_loader, args.lambda_weight)
     test_pred = (test_prob >= 0.5).astype(int)
-
     test_metrics = compute_metrics(test_true, test_prob)
     print_metrics(
         test_metrics, name=f"LATE FUSION TEST SET ({run_type} | {dropout_type})"
@@ -398,12 +371,10 @@ def main():
     writer.close()
 
     save_metrics(paths["metrics_save_path"], test_metrics)
-
     test_ids = test_loader.dataset.subject_ids
     save_predictions(
         paths["predictions_save_path"], test_ids, test_true, test_prob, test_pred
     )
-
     logger.info("=== FUSION Training Pipeline Complete! ===")
 
 

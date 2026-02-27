@@ -81,6 +81,7 @@ class LateFusionSepsisModel(nn.Module):
         config: dict,
         unimodal_configs: dict = None,
         common_dim: int = 768,
+        active_modalities: list = None,
     ):
         """
         Args:
@@ -92,7 +93,10 @@ class LateFusionSepsisModel(nn.Module):
         """
         super().__init__()
         self.common_dim = common_dim
-        self.modalities = ["ehr", "ecg", "img", "txt"]
+        self.modalities = (
+            active_modalities if active_modalities else list(input_dims.keys())
+        )
+        num_mods = len(self.modalities)
 
         # 1. Linear Projectors
         self.projectors = nn.ModuleDict(
@@ -118,17 +122,17 @@ class LateFusionSepsisModel(nn.Module):
                 )
 
         # 3. Gating Network (unchanged)
-        gate_input_dim = (common_dim * 4) + 4
+        gate_input_dim = (common_dim * num_mods) + num_mods
         self.gating_network = MLPBlock(
             input_dim=gate_input_dim,
             hidden_1=config.get("gate_hidden_1", 512),
             hidden_2=config.get("gate_hidden_2", 128),
-            output_dim=4,
+            output_dim=num_mods,  # Must output exactly 'num_mods' weights
             dropout_rate=config.get("dropout_rate", 0.1),
         )
 
         # 4. Synergy Head (unchanged)
-        syn_input_dim = common_dim * 4
+        syn_input_dim = common_dim * num_mods
         self.synergy_head = MLPBlock(
             input_dim=syn_input_dim,
             hidden_1=config.get("syn_hidden_1", 512),

@@ -5,9 +5,14 @@ Optimizes individual temperature parameters (T) across different model configura
 Includes the standalone unimodal EHR MLP for a fair baseline comparison.
 
 Usage:
-    python -m src.scripts.calibration.calibrate_all
+    # Calibrate 4-Modality baseline
+    python -m src.scripts.calibration.calibrate_all --modalities ehr ecg img txt
+
+    # Calibrate 3-Modality Champion
+    python -m src.scripts.calibration.calibrate_all --modalities ehr img txt
 """
 
+import argparse
 import json
 import logging
 from pathlib import Path
@@ -27,54 +32,6 @@ from src.utils.evaluation import load_embeddings
 logger = logging.getLogger(__name__)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-EXPERIMENTS = {
-    "ehr_mlp_baseline": {
-        "weights": Config.EHR_MLP_MODEL_DIR / "best_ehr_mlp.pt",
-        "config": Config.RESULTS_DIR / "ehr" / "tuning" / "best_hyperparameters.json",
-        "model_type": "unimodal",
-    },
-    "scratch_no_dropout": {
-        "weights": Config.FUSION_MODEL_DIR
-        / "best_late_fusion_model_scratch_no_dropout.pt",
-        "config": Config.RESULTS_DIR
-        / "fusion"
-        / "tuning"
-        / "best_hyperparameters.json",
-        "model_type": "fusion",
-        "is_pretrained": False,
-    },
-    "scratch_ehr_dropout": {
-        "weights": Config.FUSION_MODEL_DIR
-        / "best_late_fusion_model_scratch_ehr_dropout.pt",
-        "config": Config.RESULTS_DIR
-        / "fusion"
-        / "tuning"
-        / "best_hyperparameters.json",
-        "model_type": "fusion",
-        "is_pretrained": False,
-    },
-    "pretrained_no_dropout": {
-        "weights": Config.FUSION_MODEL_DIR
-        / "best_late_fusion_model_pretrained_no_dropout.pt",
-        "config": Config.RESULTS_DIR
-        / "fusion"
-        / "tuning"
-        / "best_hyperparameters_pretrained.json",
-        "model_type": "fusion",
-        "is_pretrained": True,
-    },
-    "pretrained_ehr_dropout": {
-        "weights": Config.FUSION_MODEL_DIR
-        / "best_late_fusion_model_pretrained_ehr_dropout.pt",
-        "config": Config.RESULTS_DIR
-        / "fusion"
-        / "tuning"
-        / "best_hyperparameters_pretrained.json",
-        "model_type": "fusion",
-        "is_pretrained": True,
-    },
-}
 
 
 class TemperatureScaler(nn.Module):
@@ -155,7 +112,6 @@ def gather_unimodal_validation_logits(
             all_logits.extend(logits.cpu())
             all_targets.extend(targets)
 
-    # Wrap in a dict so the TemperatureScaler handles it exactly like the fusion model's "final" output
     logits_dict = {"final": torch.stack(all_logits).squeeze()}
     targets_tensor = torch.stack(all_targets).squeeze()
 
@@ -167,10 +123,8 @@ def optimize_temperatures(logits_dict: dict, targets: torch.Tensor) -> dict:
     scaler = TemperatureScaler(list(logits_dict.keys())).to(DEVICE)
     bce_loss = nn.BCELoss()
 
-    # --- ADD THESE TWO LINES ---
     logits_dict = {k: v.to(DEVICE) for k, v in logits_dict.items()}
     targets = targets.to(DEVICE).float()
-    # ---------------------------
 
     optimizer = optim.LBFGS(scaler.parameters(), lr=0.01, max_iter=50)
 
@@ -197,8 +151,74 @@ def main():
     Config.setup_logging()
     Config.set_seed(42)
 
+    parser = argparse.ArgumentParser(description="Calibrate Fusion Models.")
+    parser.add_argument("--modalities", nargs="+", default=["ehr", "ecg", "img", "txt"])
+    args = parser.parse_args()
+    num_mods = len(args.modalities)
+
+    logger.info(
+        f"=== Starting Calibration Pipeline for {num_mods}-Modality Architecture ==="
+    )
+
+    # 1. Dynamically Construct Experiment Paths
+    tuning_suffix_scratch = f"_{num_mods}mod"
+    tuning_suffix_pre = f"_{num_mods}mod_pretrained"
+
+    experiments = {
+        "ehr_mlp_baseline": {
+            "weights": Config.EHR_MLP_MODEL_DIR / "best_ehr_mlp.pt",
+            "config": Config.RESULTS_DIR
+            / "ehr"
+            / "tuning"
+            / "best_hyperparameters.json",
+            "model_type": "unimodal",
+        },
+        "scratch_no_dropout": {
+            "weights": Config.FUSION_MODEL_DIR
+            / f"best_late_fusion_model_{num_mods}mod_scratch_no_dropout.pt",
+            "config": Config.RESULTS_DIR
+            / "fusion"
+            / "tuning"
+            / f"best_hyperparameters{tuning_suffix_scratch}.json",
+            "model_type": "fusion",
+            "is_pretrained": False,
+        },
+        "scratch_ehr_dropout": {
+            "weights": Config.FUSION_MODEL_DIR
+            / f"best_late_fusion_model_{num_mods}mod_scratch_ehr_dropout.pt",
+            "config": Config.RESULTS_DIR
+            / "fusion"
+            / "tuning"
+            / f"best_hyperparameters{tuning_suffix_scratch}.json",
+            "model_type": "fusion",
+            "is_pretrained": False,
+        },
+        "pretrained_no_dropout": {
+            "weights": Config.FUSION_MODEL_DIR
+            / f"best_late_fusion_model_{num_mods}mod_pretrained_no_dropout.pt",
+            "config": Config.RESULTS_DIR
+            / "fusion"
+            / "tuning"
+            / f"best_hyperparameters{tuning_suffix_pre}.json",
+            "model_type": "fusion",
+            "is_pretrained": True,
+        },
+        "pretrained_ehr_dropout": {
+            "weights": Config.FUSION_MODEL_DIR
+            / f"best_late_fusion_model_{num_mods}mod_pretrained_ehr_dropout.pt",
+            "config": Config.RESULTS_DIR
+            / "fusion"
+            / "tuning"
+            / f"best_hyperparameters{tuning_suffix_pre}.json",
+            "model_type": "fusion",
+            "is_pretrained": True,
+        },
+    }
+
     fusion_val_loader = DataLoader(
-        MultimodalSepsisDataset("valid", ehr_dropout_rate=0.0),
+        MultimodalSepsisDataset(
+            "valid", ehr_dropout_rate=0.0, active_modalities=args.modalities
+        ),
         batch_size=256,
         shuffle=False,
     )
@@ -207,7 +227,8 @@ def main():
 
     unimodal_configs = {}
     mod_map = {"ehr": "ehr", "ecg": "ecg", "img": "cxr_img", "txt": "cxr_txt"}
-    for mod, folder_name in mod_map.items():
+    for mod in args.modalities:
+        folder_name = mod_map[mod]
         json_path = (
             Config.RESULTS_DIR / folder_name / "tuning" / "best_hyperparameters.json"
         )
@@ -215,7 +236,7 @@ def main():
             with open(json_path, "r") as f:
                 unimodal_configs[mod] = json.load(f)["params"]
 
-    for exp_name, paths in EXPERIMENTS.items():
+    for exp_name, paths in experiments.items():
         logger.info(f"--- Starting Calibration for {exp_name} ---")
 
         weights_path = Path(paths["weights"])
@@ -241,7 +262,9 @@ def main():
             logits_dict, targets = gather_unimodal_validation_logits(model, data_path)
 
         else:  # fusion
-            input_dims = {"ehr": 768, "ecg": 768, "img": 1024, "txt": 768}
+            base_input_dims = {"ehr": 768, "ecg": 768, "img": 1024, "txt": 768}
+            input_dims = {k: base_input_dims[k] for k in args.modalities}
+
             current_unimodal_configs = (
                 unimodal_configs if paths.get("is_pretrained") else None
             )
@@ -250,6 +273,7 @@ def main():
                 input_dims=input_dims,
                 config=config,
                 unimodal_configs=current_unimodal_configs,
+                active_modalities=args.modalities,
             ).to(DEVICE)
             model.load_state_dict(
                 torch.load(weights_path, map_location=DEVICE, weights_only=True)
@@ -263,7 +287,11 @@ def main():
         optimal_temps = optimize_temperatures(logits_dict, targets)
         all_experiments_results[exp_name] = optimal_temps
 
-    output_path = Config.RESULTS_DIR / "fusion" / "master_calibration_temperatures.json"
+    output_path = (
+        Config.RESULTS_DIR
+        / "fusion"
+        / f"master_calibration_temperatures_{num_mods}mod.json"
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_path, "w") as f:

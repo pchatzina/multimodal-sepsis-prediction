@@ -6,6 +6,7 @@ import torch.nn as nn
 def composite_sepsis_loss(p_final, p_unimodal, masks, targets, lambda_weight=0.4):
     """
     Calculates the composite loss enforcing unimodal accountability.
+    Dynamically iterates over active modalities based on the model's output.
     """
     bce_unreduced = nn.BCELoss(reduction="none")
     bce_reduced = nn.BCELoss(reduction="mean")
@@ -14,7 +15,9 @@ def composite_sepsis_loss(p_final, p_unimodal, masks, targets, lambda_weight=0.4
     main_loss = bce_reduced(p_final, targets)
 
     aux_loss = 0.0
-    modalities = ["ehr", "ecg", "img", "txt"]
+
+    # Dynamically extract active modalities from the predictions dictionary
+    modalities = list(p_unimodal.keys())
 
     for mod in modalities:
         p_i = p_unimodal[mod]

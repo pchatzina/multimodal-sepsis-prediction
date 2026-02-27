@@ -9,7 +9,11 @@ training experiments:
 4. Option B (Pre-trained) + EHR Dropout
 
 Usage:
-    python -m src.scripts.training.fusion.run_fusion_experiments --tune_trials 30 --dropout_rate 0.3
+    # OPTION 1: Initial 4-Modality Experiment
+    python -m src.scripts.training.fusion.run_fusion_experiments --tune_trials 30 --dropout_rate 0.3 --modalities ehr ecg img txt
+
+    # OPTION 2: Pruned 3-Modality Champion Experiment
+    python -m src.scripts.training.fusion.run_fusion_experiments --tune_trials 30 --dropout_rate 0.3 --modalities ehr img txt
 """
 
 import argparse
@@ -49,17 +53,28 @@ def main():
         default=0.3,
         help="The EHR dropout rate to use for the dropout experiments.",
     )
+    parser.add_argument(
+        "--modalities",
+        nargs="+",
+        default=["ehr", "ecg", "img", "txt"],
+        help="List of active modalities to include in the fusion model.",
+    )
     args = parser.parse_args()
+
+    # Create the modality arguments suffix to pass to underlying scripts
+    modality_args = ["--modalities"] + args.modalities
 
     # ==========================================
     # 1. OPTIONAL: RUN TUNING
     # ==========================================
     if args.tune_trials > 0:
-        logger.info("=" * 50)
-        logger.info("  STARTING HYPERPARAMETER TUNING")
-        logger.info("=" * 50)
+        logger.info("=" * 60)
+        logger.info(
+            f"  STARTING TUNING FOR {len(args.modalities)} MODALITIES: {args.modalities}"
+        )
+        logger.info("=" * 60)
 
-        # Tune Option A
+        # Tune Option A (Scratch)
         run_command(
             [
                 "python",
@@ -68,8 +83,10 @@ def main():
                 "--n_trials",
                 str(args.tune_trials),
             ]
+            + modality_args
         )
-        # Tune Option B
+
+        # Tune Option B (Pre-trained)
         run_command(
             [
                 "python",
@@ -79,14 +96,17 @@ def main():
                 str(args.tune_trials),
                 "--load_pretrained",
             ]
+            + modality_args
         )
 
     # ==========================================
     # 2. RUN 4 TRAINING EXPERIMENTS
     # ==========================================
-    logger.info("=" * 50)
-    logger.info("  STARTING 4 FUSION TRAINING EXPERIMENTS")
-    logger.info("=" * 50)
+    logger.info("=" * 60)
+    logger.info(
+        f"  STARTING 4 TRAINING EXPERIMENTS FOR {len(args.modalities)} MODALITIES"
+    )
+    logger.info("=" * 60)
 
     experiments = [
         {
@@ -122,6 +142,9 @@ def main():
 
         if exp["dropout"] > 0.0:
             cmd.extend(["--ehr_dropout_rate", str(exp["dropout"])])
+
+        # Always append the modalities list
+        cmd.extend(modality_args)
 
         run_command(cmd)
 

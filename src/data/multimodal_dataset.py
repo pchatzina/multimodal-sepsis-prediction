@@ -23,10 +23,18 @@ class MultimodalSepsisDataset(Dataset):
             - 'label' (Tensor): The binary ground truth label for sepsis prediction.
     """
 
-    def __init__(self, split: str = "train", ehr_dropout_rate: float = 0.0):
+    def __init__(
+        self,
+        split: str = "train",
+        ehr_dropout_rate: float = 0.0,
+        active_modalities: list = None,
+    ):
         super().__init__()
         self.split = split
         self.ehr_dropout_rate = ehr_dropout_rate
+        self.active_modalities = (
+            active_modalities if active_modalities else ["ehr", "ecg", "img", "txt"]
+        )
 
         # 1. Define paths for the requested split using the corrected filenames
         ehr_path = Config.EHR_EMBEDDINGS_DIR / f"{split}_embeddings.pt"
@@ -38,13 +46,19 @@ class MultimodalSepsisDataset(Dataset):
         # Using map_location='cpu' ensures we don't load onto GPU before the DataLoader
         self.ehr_data = torch.load(ehr_path, map_location="cpu")
         self.ecg_data = (
-            torch.load(ecg_path, map_location="cpu") if ecg_path.exists() else None
+            torch.load(ecg_path, map_location="cpu")
+            if "ecg" in self.active_modalities and ecg_path.exists()
+            else None
         )
         self.img_data = (
-            torch.load(img_path, map_location="cpu") if img_path.exists() else None
+            torch.load(img_path, map_location="cpu")
+            if "img" in self.active_modalities and img_path.exists()
+            else None
         )
         self.txt_data = (
-            torch.load(txt_path, map_location="cpu") if txt_path.exists() else None
+            torch.load(txt_path, map_location="cpu")
+            if "txt" in self.active_modalities and txt_path.exists()
+            else None
         )
 
         # 3. Establish the base cohort
@@ -81,10 +95,10 @@ class MultimodalSepsisDataset(Dataset):
         masks = {}
 
         # Check if the patient has any alternative modalities
-        has_other_modality = (
-            (subject_id in self.ecg_idx_map)
-            or (subject_id in self.img_idx_map)
-            or (subject_id in self.txt_idx_map)
+        has_other_modality = any(
+            subject_id in getattr(self, f"{mod}_idx_map")
+            for mod in self.active_modalities
+            if mod != "ehr"
         )
 
         # --- EHR Conditional Dropout ---
@@ -101,32 +115,21 @@ class MultimodalSepsisDataset(Dataset):
             embeddings["ehr"] = self.ehr_data["embeddings"][ehr_row]
             masks["ehr"] = torch.tensor([1.0], dtype=torch.float32)
 
-        # --- ECG ---
-        if subject_id in self.ecg_idx_map:
-            ecg_row = self.ecg_idx_map[subject_id]
-            embeddings["ecg"] = self.ecg_data["embeddings"][ecg_row]
-            masks["ecg"] = torch.tensor([1.0], dtype=torch.float32)
-        else:
-            embeddings["ecg"] = torch.zeros(self.dim_ecg, dtype=torch.float32)
-            masks["ecg"] = torch.tensor([0.0], dtype=torch.float32)
+        for mod in self.active_modalities:
+            if mod == "ehr":
+                continue  # Handled by your dropout logic above
 
-        # --- CXR Image ---
-        if subject_id in self.img_idx_map:
-            img_row = self.img_idx_map[subject_id]
-            embeddings["img"] = self.img_data["embeddings"][img_row]
-            masks["img"] = torch.tensor([1.0], dtype=torch.float32)
-        else:
-            embeddings["img"] = torch.zeros(self.dim_img, dtype=torch.float32)
-            masks["img"] = torch.tensor([0.0], dtype=torch.float32)
+            idx_map = getattr(self, f"{mod}_idx_map")
+            data_dict = getattr(self, f"{mod}_data")
+            dim = getattr(self, f"dim_{mod}")
 
-        # --- CXR Text ---
-        if subject_id in self.txt_idx_map:
-            txt_row = self.txt_idx_map[subject_id]
-            embeddings["txt"] = self.txt_data["embeddings"][txt_row]
-            masks["txt"] = torch.tensor([1.0], dtype=torch.float32)
-        else:
-            embeddings["txt"] = torch.zeros(self.dim_txt, dtype=torch.float32)
-            masks["txt"] = torch.tensor([0.0], dtype=torch.float32)
+            if subject_id in idx_map:
+                row = idx_map[subject_id]
+                embeddings[mod] = data_dict["embeddings"][row]
+                masks[mod] = torch.tensor([1.0], dtype=torch.float32)
+            else:
+                embeddings[mod] = torch.zeros(dim, dtype=torch.float32)
+                masks[mod] = torch.tensor([0.0], dtype=torch.float32)
 
         return {
             "subject_id": subject_id,

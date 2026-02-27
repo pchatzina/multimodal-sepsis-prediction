@@ -3,6 +3,8 @@
 ![Status](https://img.shields.io/badge/Status-Work_in_Progress-yellow)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
+## ❗ **CAUTION:** This project is currently incomplete and under active development.
+
 ## 📌 Project Overview
 This repository contains the implementation of a multimodal neural network designed for the **early prediction of sepsis** in ICU patients.
 
